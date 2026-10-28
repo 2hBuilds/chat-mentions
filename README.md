@@ -6,6 +6,8 @@
 <tr>
 <td valign="top">
 
+<br><br><br>
+
 ## How it works
 
 1. **Add a keyword** under the cards. Your name is one already.
@@ -21,6 +23,8 @@
 <table width="100%">
 <tr>
 <td valign="top">
+
+<br>
 
 ## Good to know
 
