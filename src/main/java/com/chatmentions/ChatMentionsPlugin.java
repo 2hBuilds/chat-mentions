@@ -44,8 +44,8 @@ import org.slf4j.LoggerFactory;
 @PluginDescriptor(
 	name = "2h Chat Mentions",
 	internalName = "chat-mentions",
-	description = "The chat lines that name you or your keywords, as cards over the kept chat, so you catch up after being away. (v" + Version.CURRENT + ")",
-	tags = {"chat", "clan", "mentions", "keywords", "afk", "history"}
+	description = "Catch up after being afk: chat lines that name you or a keyword become cards in the sidebar. (v" + Version.CURRENT + ")",
+	tags = {"clan", "friends", "fc", "public", "private", "pm", "highlight", "ping", "away", "missed", "log", "history"}
 )
 public class ChatMentionsPlugin extends Plugin
 {
