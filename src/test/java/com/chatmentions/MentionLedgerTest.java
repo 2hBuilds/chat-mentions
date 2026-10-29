@@ -85,6 +85,62 @@ public class MentionLedgerTest
 		assertEquals("told again", 4, told.get());
 	}
 
+	private static Mention mention(Chat chat, long seq)
+	{
+		return new Mention(chat, seq, 1000L * seq, "who", "text " + seq, Collections.<int[]>emptyList(), -1);
+	}
+
+	@Test
+	public void theCapHoldsForEachChat()
+	{
+		final MentionLedger ledger = new MentionLedger(2);
+		ledger.add(mention(Chat.PUBLIC, 1));
+		ledger.add(mention(Chat.PUBLIC, 2));
+		ledger.add(mention(Chat.PUBLIC, 3));
+		ledger.add(mention(Chat.CLAN, 4));
+		final List<Mention> held = ledger.mentions();
+		assertEquals(3, held.size());
+		assertEquals(4, held.get(0).seq());
+		assertEquals(Chat.CLAN, held.get(0).chat());
+		assertEquals(3, held.get(1).seq());
+		assertEquals(2, held.get(2).seq());
+	}
+
+	@Test
+	public void resizeDropsTheOldestOfEachChat()
+	{
+		final MentionLedger ledger = new MentionLedger(3);
+		ledger.add(mention(Chat.PUBLIC, 1));
+		ledger.add(mention(Chat.CLAN, 2));
+		ledger.add(mention(Chat.PUBLIC, 3));
+		ledger.add(mention(Chat.CLAN, 4));
+		final AtomicInteger told = counter(ledger);
+		ledger.resize(1);
+		final List<Mention> held = ledger.mentions();
+		assertEquals(2, held.size());
+		assertEquals(4, held.get(0).seq());
+		assertEquals(3, held.get(1).seq());
+		assertEquals("told once", 1, told.get());
+	}
+
+	@Test
+	public void clearOfAChatEmptiesOnlyIt()
+	{
+		final MentionLedger ledger = new MentionLedger(5);
+		ledger.add(mention(Chat.CLAN, 1));
+		ledger.add(mention(Chat.PUBLIC, 2));
+		final AtomicInteger told = counter(ledger);
+		ledger.clear(Chat.CLAN);
+		assertEquals(1, ledger.mentions().size());
+		assertEquals(Chat.PUBLIC, ledger.mentions().get(0).chat());
+		assertEquals("told once", 1, told.get());
+		ledger.clear(Chat.CLAN);
+		assertEquals("nothing went, nothing told", 1, told.get());
+		ledger.clear(Chat.ALL);
+		assertEquals(0, ledger.mentions().size());
+		assertEquals(2, told.get());
+	}
+
 	@Test
 	public void resizeDropsTheOldestAndNeverBelowOne()
 	{

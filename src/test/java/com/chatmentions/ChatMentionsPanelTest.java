@@ -33,6 +33,7 @@ import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JToggleButton;
+import javax.swing.JComponent;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.SwingConstants;
@@ -61,6 +62,7 @@ public class ChatMentionsPanelTest
 {
 	private String keywords = "2h, klar";
 	private boolean wholeWordsOnly = true;
+	private boolean followChatFilter = true;
 	private final Map<Chat, Boolean> watched = new EnumMap<>(Chat.class);
 	private int cards = 20;
 	private int lines = 3000;
@@ -94,6 +96,18 @@ public class ChatMentionsPanelTest
 		public void setKeywords(String words)
 		{
 			writes.add("keywords=" + words);
+		}
+
+		@Override
+		public boolean followChatFilter()
+		{
+			return followChatFilter;
+		}
+
+		@Override
+		public void setFollowChatFilter(boolean on)
+		{
+			writes.add("followChatFilter=" + on);
 		}
 
 		@Override
@@ -261,12 +275,34 @@ public class ChatMentionsPanelTest
 	}
 
 	@Test
+	public void theTwoPressableRowsDarkenUnderTheMouseLikeTheMenuItems() throws Exception
+	{
+		withMenu((panel, menu) ->
+		{
+			final Component[] parts = menu.getComponents();
+			for (final int index : new int[]{2, 17})
+			{
+				final JPanel row = (JPanel) parts[index];
+				final Component caption = row.getComponent(0);
+				assertFalse(row.getName() + " is clear at rest", row.isOpaque());
+				row.dispatchEvent(new MouseEvent(row, MouseEvent.MOUSE_ENTERED, System.currentTimeMillis(), 0, 2, 2, 0, false));
+				assertTrue(row.getName() + " darkens under the mouse", row.isOpaque());
+				assertEquals(ChatMentionsPanel.menuHover(), row.getBackground());
+				caption.dispatchEvent(new MouseEvent(caption, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, 2, 2, 0, false));
+				assertTrue(row.getName() + " stays dark while the mouse is still on it", row.isOpaque());
+				row.dispatchEvent(new MouseEvent(row, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, -5, -5, 0, false));
+				assertFalse(row.getName() + " clears when the mouse leaves", row.isOpaque());
+			}
+		});
+	}
+
+	@Test
 	public void theMenuHoldsTheSwitchesTheBoxesAndTheOkRow() throws Exception
 	{
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			assertEquals(23, parts.length);
+			assertEquals(24, parts.length);
 			assertTrue("the header", parts[0] instanceof JPanel);
 			assertTrue("a rule", parts[1] instanceof JPopupMenu.Separator);
 			assertEquals(ChatMentionsPanel.HOW_TO_ROW_NAME, parts[2].getName());
@@ -289,41 +325,45 @@ public class ChatMentionsPanelTest
 			assertEquals("Whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
 			assertTrue(((JCheckBoxMenuItem) parts[12]).isSelected());
 			assertEquals("Ticked: 2h matches only the word 2h. Unticked: 2h also matches 2hbuilds.", ((JCheckBoxMenuItem) parts[12]).getToolTipText());
-			assertTrue("a rule", parts[13] instanceof JPopupMenu.Separator);
+			assertTrue(parts[13] instanceof JCheckBoxMenuItem);
+			assertEquals("Block what the chatbox blocks", ((JCheckBoxMenuItem) parts[13]).getText());
+			assertTrue(((JCheckBoxMenuItem) parts[13]).isSelected());
+			assertEquals("Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. Spam getting through? Add the words to Chat Filter.", ((JCheckBoxMenuItem) parts[13]).getToolTipText());
+			assertTrue("a rule", parts[14] instanceof JPopupMenu.Separator);
 
-			assertEquals("Colours", captionOf((JPanel) parts[14]));
-			assertEquals(new Color(165, 165, 165), ((JLabel) ((JPanel) parts[14]).getComponent(0)).getForeground());
-			final JPanel colourRow = (JPanel) parts[15];
+			assertEquals("Colours", captionOf((JPanel) parts[15]));
+			assertEquals(new Color(165, 165, 165), ((JLabel) ((JPanel) parts[15]).getComponent(0)).getForeground());
+			final JPanel colourRow = (JPanel) parts[16];
 			assertEquals(ChatMentionsPanel.KEYWORD_COLOUR_ROW_NAME, colourRow.getName());
 			assertEquals("Default keyword colour", captionOf(colourRow));
 			assertEquals(Color.WHITE, ((JLabel) colourRow.getComponent(0)).getForeground());
 			final Component swatch = lastOf(colourRow);
 			assertEquals(ChatMentionsPanel.KEYWORD_SWATCH_NAME, swatch.getName());
 			assertEquals(new Color(59, 130, 246), swatch.getBackground());
-			final JPanel resetRow = (JPanel) parts[16];
+			final JPanel resetRow = (JPanel) parts[17];
 			assertEquals(ChatMentionsPanel.KEYWORD_CLEAR_NAME, resetRow.getName());
 			assertEquals("Reset all keyword colours", captionOf(resetRow));
 			assertEquals(Color.WHITE, ((JLabel) resetRow.getComponent(0)).getForeground());
-			assertTrue("a rule", parts[17] instanceof JPopupMenu.Separator);
-			assertEquals("Keywords", captionOf((JPanel) parts[18]));
-			final Component box = lastOf((JPanel) parts[18]);
+			assertTrue("a rule", parts[18] instanceof JPopupMenu.Separator);
+			assertEquals("Keywords", captionOf((JPanel) parts[19]));
+			final Component box = lastOf((JPanel) parts[19]);
 			assertTrue(box instanceof JTextField);
 			assertEquals("2h, klar", ((JTextField) box).getText());
 
-			assertEquals("Cards kept", captionOf((JPanel) parts[19]));
-			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[19]);
+			assertEquals("Cards kept", captionOf((JPanel) parts[20]));
+			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[20]);
 			assertEquals(20, ((Number) cardsSpinner.getValue()).intValue());
 			assertTrue(((JSpinner.DefaultEditor) cardsSpinner.getEditor()).getTextField().getColumns() <= 4);
 
-			assertEquals("Chat lines kept", captionOf((JPanel) parts[20]));
-			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[20]);
+			assertEquals("Chat lines kept", captionOf((JPanel) parts[21]));
+			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[21]);
 			assertEquals(3000, ((Number) linesSpinner.getValue()).intValue());
 			assertTrue(((JSpinner.DefaultEditor) linesSpinner.getEditor()).getTextField().getColumns() <= 5);
 
-			assertTrue("a rule", parts[21] instanceof JPopupMenu.Separator);
-			assertTrue(parts[22] instanceof JPanel);
-			assertNotNull(button((JPanel) parts[22], "Reset to default"));
-			assertNotNull(button((JPanel) parts[22], "OK"));
+			assertTrue("a rule", parts[22] instanceof JPopupMenu.Separator);
+			assertTrue(parts[23] instanceof JPanel);
+			assertNotNull(button((JPanel) parts[23], "Reset to default"));
+			assertNotNull(button((JPanel) parts[23], "OK"));
 			final int swatchRight = SwingUtilities.convertPoint(swatch, swatch.getWidth(), 0, menu).x;
 			final int boxRight = SwingUtilities.convertPoint(box, box.getWidth(), 0, menu).x;
 			assertTrue("the swatch's right edge is at the boxes' (" + swatchRight + " vs " + boxRight + ")",
@@ -347,14 +387,26 @@ public class ChatMentionsPanelTest
 	}
 
 	@Test
+	public void followChatFilterIsTickedByDefaultAndAClickWritesFalse() throws Exception
+	{
+		withMenu((panel, menu) ->
+		{
+			assertTrue(check(menu, "Block what the chatbox blocks").isSelected());
+			click(check(menu, "Block what the chatbox blocks"));
+			assertEquals(Arrays.asList("followChatFilter=false"), writes);
+			assertTrue("the menu is still showing", menu.isVisible());
+		});
+	}
+
+	@Test
 	public void theBoxesWriteAsTypedAndTakeTheKeyboardOnlyWhenPressed() throws Exception
 	{
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			final JTextField box = (JTextField) lastOf((JPanel) parts[18]);
-			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[19]);
-			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[20]);
+			final JTextField box = (JTextField) lastOf((JPanel) parts[19]);
+			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[20]);
+			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[21]);
 			final JFormattedTextField cardsField = ((JSpinner.DefaultEditor) cardsSpinner.getEditor()).getTextField();
 			final JFormattedTextField linesField = ((JSpinner.DefaultEditor) linesSpinner.getEditor()).getTextField();
 			assertFalse(box.isFocusable());
@@ -391,9 +443,9 @@ public class ChatMentionsPanelTest
 			menu.show(icon, 0, icon.getHeight());
 			assertTrue(menu.isVisible());
 			final Component[] again = menu.getComponents();
-			assertEquals("x", ((JTextField) lastOf((JPanel) again[18])).getText());
-			assertEquals(7, ((Number) ((JSpinner) lastOf((JPanel) again[19])).getValue()).intValue());
-			assertEquals(2000, ((Number) ((JSpinner) lastOf((JPanel) again[20])).getValue()).intValue());
+			assertEquals("x", ((JTextField) lastOf((JPanel) again[19])).getText());
+			assertEquals(7, ((Number) ((JSpinner) lastOf((JPanel) again[20])).getValue()).intValue());
+			assertEquals(2000, ((Number) ((JSpinner) lastOf((JPanel) again[21])).getValue()).intValue());
 			assertTrue("Game ticked", ((JCheckBoxMenuItem) again[9]).isSelected());
 			assertTrue("the sync wrote nothing back", writes.isEmpty());
 		});
@@ -404,7 +456,7 @@ public class ChatMentionsPanelTest
 	{
 		withMenu((panel, menu) ->
 		{
-			final JPanel okRow = (JPanel) menu.getComponents()[22];
+			final JPanel okRow = (JPanel) menu.getComponents()[23];
 			button(okRow, "Reset to default").doClick(0);
 			assertEquals(1, resets);
 			assertTrue("the menu is still showing", menu.isVisible());
@@ -492,6 +544,28 @@ public class ChatMentionsPanelTest
 			final AttributeSet plain = attributesAt(text, 3);
 			assertEquals(Color.WHITE, StyleConstants.getForeground(plain));
 			assertFalse(StyleConstants.isBold(plain));
+		});
+	}
+
+	@Test
+	public void theKeywordStripSitsInADarkWellApartFromTheCards() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final JComponent strip = (JComponent) named(shown, ChatMentionsPanel.STRIP_NAME);
+			assertTrue("the strip is painted", strip.isOpaque());
+			assertEquals(ChatMentionsPanel.WELL, strip.getBackground());
+			final javax.swing.border.Border edge = ((javax.swing.border.CompoundBorder) strip.getBorder()).getOutsideBorder();
+			assertEquals(ChatMentionsPanel.WELL_RIM, ((javax.swing.border.MatteBorder) edge).getMatteColor());
+			assertEquals("a 1 px rim", 1, edge.getBorderInsets(strip).top);
+			assertEquals("the rim takes nothing from the strip's room", 6, strip.getBorder().getBorderInsets(strip).top);
+			final Component cards = named(shown, ChatMentionsPanel.CARDS_NAME);
+			final JScrollPane scroll = (JScrollPane) SwingUtilities.getAncestorOfClass(JScrollPane.class, cards);
+			assertFalse("the cards' scroll stays unpainted", scroll.isOpaque() || scroll.getViewport().isOpaque());
+			final int cardsBottom = SwingUtilities.convertPoint(scroll, 0, scroll.getHeight(), shown).y;
+			final int stripTop = SwingUtilities.convertPoint(strip, 0, 0, shown).y;
+			assertTrue("the strip stands at least 6 px under the cards: " + (stripTop - cardsBottom), stripTop - cardsBottom >= 6);
 		});
 	}
 
@@ -1237,9 +1311,9 @@ public class ChatMentionsPanelTest
 		{
 			final Component[] parts = menu.getComponents();
 			assertEquals("Whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
-			assertEquals("Default keyword colour", captionOf((JPanel) parts[15]));
-			assertEquals("Keywords", captionOf((JPanel) parts[18]));
-			final Component swatch = named((JPanel) parts[15], ChatMentionsPanel.KEYWORD_SWATCH_NAME);
+			assertEquals("Default keyword colour", captionOf((JPanel) parts[16]));
+			assertEquals("Keywords", captionOf((JPanel) parts[19]));
+			final Component swatch = named((JPanel) parts[16], ChatMentionsPanel.KEYWORD_SWATCH_NAME);
 			assertTrue(swatch instanceof JLabel);
 			assertEquals(ChatMentionsPanel.KEYWORD_SWATCH_NAME, swatch.getName());
 			assertEquals(new Color(59, 130, 246), swatch.getBackground());
@@ -1414,7 +1488,7 @@ public class ChatMentionsPanelTest
 		keywordColours = "klar=ff0000, 2h=00ff00";
 		withMenu((panel, menu) ->
 		{
-			final JPanel row = (JPanel) menu.getComponents()[16];
+			final JPanel row = (JPanel) menu.getComponents()[17];
 			assertEquals(ChatMentionsPanel.KEYWORD_CLEAR_NAME, row.getName());
 			assertEquals("Reset all keyword colours", captionOf(row));
 			leftPress(row);
@@ -1621,6 +1695,95 @@ public class ChatMentionsPanelTest
 	{
 		final Element line = paragraph(view, paragraphIndex);
 		return StyleConstants.getForeground(attributesAt(view, line.getStartOffset() + textOf(view, line).indexOf("2h")));
+	}
+
+	@Test
+	public void theCardsFollowTheLitTab() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "A", "2h a", 1);
+		feed.line(ChatMessageType.PUBLICCHAT, "B", "2h b", 2);
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(2, cards().size());
+			assertNotNull(labelSaying(shown, "2 unread"));
+			leftPress(chip("Clan"));
+		});
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(1, cards().size());
+			assertNotNull(labelSaying(shown, "1 unread"));
+			assertNotNull(labelSaying(cards().get(0), "A"));
+			leftPress(chip("Public"));
+		});
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(1, cards().size());
+			assertNotNull(labelSaying(cards().get(0), "B"));
+			leftPress(chip("All"));
+		});
+		flush();
+		onEdt(() -> assertEquals(2, cards().size()));
+	}
+
+	@Test
+	public void aLineForAnotherChatMakesNoCardOnTheLitTab() throws Exception
+	{
+		open();
+		onEdt(() -> leftPress(chip("Clan")));
+		flush();
+		feed.line(ChatMessageType.PUBLICCHAT, "B", "2h b", 2);
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(0, cards().size());
+			assertNotNull(labelSaying(shown, "0 unread"));
+			assertTrue(named(shown, ChatMentionsPanel.TIP_NAME).isShowing());
+		});
+		assertEquals(1, feed.ledger().mentions().size());
+		onEdt(() -> leftPress(chip("All")));
+		flush();
+		onEdt(() -> assertEquals(1, cards().size()));
+	}
+
+	@Test
+	public void clearOnATabClearsOnlyItsCards() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "A", "2h a", 1);
+		feed.line(ChatMessageType.PUBLICCHAT, "B", "2h b", 2);
+		flush();
+		onEdt(() -> leftPress(chip("Clan")));
+		flush();
+		onEdt(() -> leftPress(labelSaying(shown, "Clear")));
+		assertEquals(Arrays.asList("B"), whos());
+		flush();
+		onEdt(() -> leftPress(chip("All")));
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(1, cards().size());
+			assertNotNull(labelSaying(cards().get(0), "B"));
+		});
+	}
+
+	@Test
+	public void aCardClickOnAllLightsItsChatAndTheCardsFollow() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "A", "2h a", 1);
+		feed.line(ChatMessageType.PUBLICCHAT, "B", "2h b", 2);
+		flush();
+		onEdt(() -> leftPress(cards().get(0)));
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(Arrays.asList("Public"), litChips());
+			assertEquals(1, cards().size());
+		});
 	}
 
 	private static String clock(long at)

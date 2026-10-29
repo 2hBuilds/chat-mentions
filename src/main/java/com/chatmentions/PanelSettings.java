@@ -20,6 +20,12 @@ interface PanelSettings
 	/** Writes whether a keyword counts as a whole word only. */
 	void setWholeWordsOnly(boolean on);
 
+	/** Whether chat lines are hidden and censored the way RuneLite's Chat Filter does, when it is on. */
+	boolean followChatFilter();
+
+	/** Writes whether chat lines follow RuneLite's Chat Filter. */
+	void setFollowChatFilter(boolean on);
+
 	/** Whether {@code chat} is kept and makes cards. */
 	boolean watched(Chat chat);
 

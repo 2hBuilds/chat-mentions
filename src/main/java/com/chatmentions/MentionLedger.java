@@ -23,7 +23,10 @@ final class MentionLedger
 		this.cap = Math.max(1, cap);
 	}
 
-	/** Keeps the mention as the newest; the oldest goes when more than the cap are held. Tells every listener. Null adds nothing. */
+	/**
+	 * Keeps the mention as the newest; the oldest of the same chat goes when that chat holds more than the cap. Tells
+	 * every listener. Null adds nothing.
+	 */
 	void add(Mention mention)
 	{
 		if (mention == null)
@@ -33,10 +36,7 @@ final class MentionLedger
 		synchronized (this)
 		{
 			entries.add(0, mention);
-			while (entries.size() > cap)
-			{
-				entries.remove(entries.size() - 1);
-			}
+			trim(mention.chat());
 		}
 		changed();
 	}
@@ -85,22 +85,61 @@ final class MentionLedger
 		changed();
 	}
 
-	/** Sets the cap (below 1 reads as 1), drops the oldest beyond it, and tells only when something went. */
+	/**
+	 * Empties the ledger of that chat's mentions; null or {@link Chat#ALL} empties it of all. Tells every listener only
+	 * when something went.
+	 */
+	void clear(Chat chat)
+	{
+		boolean removed;
+		synchronized (this)
+		{
+			if (chat == null || chat == Chat.ALL)
+			{
+				removed = !entries.isEmpty();
+				entries.clear();
+			}
+			else
+			{
+				removed = entries.removeIf(m -> m.chat() == chat);
+			}
+		}
+		if (removed)
+		{
+			changed();
+		}
+	}
+
+	/** Sets the cap (below 1 reads as 1), drops each chat's oldest beyond it, and tells only when something went. */
 	void resize(int cap)
 	{
 		boolean dropped = false;
 		synchronized (this)
 		{
 			this.cap = Math.max(1, cap);
-			while (entries.size() > this.cap)
+			final int before = entries.size();
+			for (final Chat chat : Chat.values())
 			{
-				entries.remove(entries.size() - 1);
-				dropped = true;
+				trim(chat);
 			}
+			dropped = entries.size() < before;
 		}
 		if (dropped)
 		{
 			changed();
+		}
+	}
+
+	/** Drops the oldest mentions of the chat beyond the cap. Called with the lock held. */
+	private void trim(Chat chat)
+	{
+		int seen = 0;
+		for (int i = 0; i < entries.size(); i++)
+		{
+			if (entries.get(i).chat() == chat && ++seen > cap)
+			{
+				entries.remove(i--);
+			}
 		}
 	}
 

@@ -13,12 +13,16 @@ import java.awt.Window;
 import java.awt.datatransfer.StringSelection;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
+import net.runelite.api.clan.ClanChannel;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.RuneLiteProperties;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -29,11 +33,12 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.components.colorpicker.ColorPickerManager;
 import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
+import net.runelite.client.util.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 2h Chat Mentions: keeps every line of the watched chats and makes a card of each mention, with the fourteen settings
+ * 2h Chat Mentions: keeps every line of the watched chats and makes a card of each mention, with the fifteen settings
  * working in RuneLite's config panel and in the sidebar's menu, and shows the cards over the kept chat in the sidebar.
  */
 @PluginDescriptor(
@@ -68,6 +73,7 @@ public class ChatMentionsPlugin extends Plugin
 	private volatile MentionFeed feed;
 	private volatile ChatMentionsPanel panel;
 	private volatile boolean nameWanted;
+	private volatile ChatFilterRules filterRules;
 	private final RankIcons icons = new RankIcons();
 
 	@Provides
@@ -81,6 +87,7 @@ public class ChatMentionsPlugin extends Plugin
 	{
 		feed = new MentionFeed(config.linesKept(), config.cardsKept());
 		applySettings();
+		filterRules = readFilterRules();
 		nameWanted = true;
 		final PanelSettings settings = new PanelSettings()
 		{
@@ -106,6 +113,18 @@ public class ChatMentionsPlugin extends Plugin
 			public void setWholeWordsOnly(boolean on)
 			{
 				write("wholeWordsOnly", on);
+			}
+
+			@Override
+			public boolean followChatFilter()
+			{
+				return config.followChatFilter();
+			}
+
+			@Override
+			public void setFollowChatFilter(boolean on)
+			{
+				write("followChatFilter", on);
 			}
 
 			@Override
@@ -235,6 +254,7 @@ public class ChatMentionsPlugin extends Plugin
 			old.clear();
 		}
 		feed = null;
+		filterRules = null;
 		panel = null;
 		nameWanted = false;
 	}
@@ -280,7 +300,9 @@ public class ChatMentionsPlugin extends Plugin
 			return;
 		}
 		icons.capture(RankIcons.indexIn(event.getName()), client.getModIcons());
-		if (current.line(event.getType(), event.getName(), event.getMessage(), System.currentTimeMillis()))
+		final Widget publicFilter = client.getWidget(InterfaceID.Chatbox.CHAT_PUBLIC_FILTER);
+		final PublicSetting setting = PublicSetting.of(publicFilter == null ? null : publicFilter.getText());
+		if (feedLine(current, filterRules, setting, event.getType(), event.getName(), event.getMessage(), System.currentTimeMillis()))
 		{
 			log.debug("A mention card was made in the {} chat", Chat.of(event.getType()).label());
 		}
@@ -289,16 +311,92 @@ public class ChatMentionsPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!ChatMentionsConfig.GROUP.equals(event.getGroup()) || feed == null)
+		if (feed == null)
 		{
 			return;
 		}
+		if (ChatFilterRules.GROUP.equals(event.getGroup())
+			|| (ChatFilterRules.PLUGIN_GROUP.equals(event.getGroup()) && ChatFilterRules.PLUGIN_KEY.equals(event.getKey())))
+		{
+			filterRules = readFilterRules();
+			return;
+		}
+		if (!ChatMentionsConfig.GROUP.equals(event.getGroup()))
+		{
+			return;
+		}
+		filterRules = readFilterRules();
 		applySettings();
 		final ChatMentionsPanel current = panel;
 		if (current != null)
 		{
 			SwingUtilities.invokeLater(current::settingsChanged);
 		}
+	}
+
+	/**
+	 * Hands one chat line to the feed, after the game's Public setting and Chat Filter's rules: a line either removes is
+	 * not kept and makes no card, and a censored one is kept as censored. The Public setting applies only while the
+	 * tick is on.
+	 * Choice: package-private static so the plugin's own call is also what the test reads.
+	 *
+	 * @param rules the rules in force, or null for none
+	 * @param setting the game's Public setting as the chatbox shows it
+	 * @return whether the line made a card
+	 */
+	static boolean feedLine(MentionFeed feed, ChatFilterRules rules, PublicSetting setting, ChatMessageType type, String name, String message, long now)
+	{
+		String kept = message;
+		if (rules != null)
+		{
+			if (rules.follows() && setting != null
+				&& !setting.keeps(type, rules.fromYou(name), rules.fromFriend(name)))
+			{
+				return false;
+			}
+			kept = rules.apply(type, name, message);
+			if (kept == null)
+			{
+				return false;
+			}
+		}
+		return feed.line(type, name, kept, now);
+	}
+
+	/** Rebuilds the Chat Filter rules from Chat Filter's settings and this plugin's own switch. */
+	private ChatFilterRules readFilterRules()
+	{
+		return new ChatFilterRules((group, key) -> configManager.getConfiguration(group, key), config.followChatFilter(),
+			new ChatFilterRules.Who()
+			{
+				@Override
+				public boolean isLocalPlayer(String name)
+				{
+					final Player player = client.getLocalPlayer();
+					return player != null && player.getName() != null
+						&& Text.standardize(player.getName()).equals(Text.standardize(name));
+				}
+
+				@Override
+				public boolean isFriend(String name)
+				{
+					return client.isFriended(name, false);
+				}
+
+				@Override
+				public boolean isFriendsChatMember(String name)
+				{
+					return client.getFriendsChatManager() != null && client.getFriendsChatManager().findByName(name) != null;
+				}
+
+				@Override
+				public boolean isClanMember(String name)
+				{
+					final ClanChannel clan = client.getClanChannel();
+					final ClanChannel guest = client.getGuestClanChannel();
+					return (clan != null && clan.findMember(name) != null) || (guest != null && guest.findMember(name) != null);
+				}
+			});
 	}
 
 	/**
@@ -399,10 +497,10 @@ public class ChatMentionsPlugin extends Plugin
 			bounds.width - insets.left - insets.right, bounds.height - insets.top - insets.bottom);
 	}
 
-	/** "Reset to default": unsets the fourteen keys. */
+	/** "Reset to default": unsets the fifteen keys. */
 	private void resetToDefault()
 	{
-		final String[] keys = {"keywords", "wholeWordsOnly", "watchPublic", "watchPrivate", "watchChannel", "watchClan",
+		final String[] keys = {"keywords", "wholeWordsOnly", "followChatFilter", "watchPublic", "watchPrivate", "watchChannel", "watchClan",
 			"watchGame", "watchTrade", "cardsKept", "linesKept", "defaultKeywordColour",
 			"keywordColours", "cardsShare", "shownTab"};
 		for (final String key : keys)

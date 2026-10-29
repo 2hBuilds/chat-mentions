@@ -8,7 +8,8 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * {@link NavIcon}, in memory: the size, the coin exactly as {@link CoinGlyph} draws it, the picture clear of it, and
- * the picture itself pinned: the two stacked cards of sheet 1's number 4, picked 2026-10-28.
+ * the picture itself pinned: the outlined white bubble with an orange word and the older messages stacked behind
+ * it, sheet 13's number 1, picked 2026-10-28.
  */
 public class NavIconTest
 {
@@ -16,13 +17,14 @@ public class NavIconTest
 	private static final double COIN_CENTRE = 4.5;
 	private static final double CLEAR_DISTANCE = 6.0;
 
-	/** The picture's colours, as opaque ARGB: the back card's soft grey, the front card's white, the mention blue. */
-	private static final int SOFT = 0xFFAAAAAA;
+	/** The picture's colours, as opaque ARGB: the faint and mid greys of the older messages, the bubble's white, the orange. */
+	private static final int FAINT = 0xFF505050;
+	private static final int MID = 0xFF7D7D7D;
 	private static final int WHITE = 0xFFF0F0F0;
-	private static final int BLUE = 0xFF3B82F6;
+	private static final int ORANGE = 0xFFDC8A00;
 
-	/** How many pixels the picture adds to the coin: 20 white, 11 soft grey, 3 blue. */
-	private static final int PICTURE_PIXELS = 34;
+	/** How many pixels the picture adds to the coin: 21 white, 4 faint grey, 8 mid grey, 3 orange. */
+	private static final int PICTURE_PIXELS = 36;
 
 	private static BufferedImage coinAlone()
 	{
@@ -102,7 +104,7 @@ public class NavIconTest
 	}
 
 	@Test
-	public void thePictureIsTheTwoStackedCards()
+	public void thePictureIsTheBubbleWithTheChatBehindIt()
 	{
 		final BufferedImage icon = NavIcon.create();
 		final BufferedImage coin = coinAlone();
@@ -119,38 +121,46 @@ public class NavIconTest
 		}
 		assertEquals("the picture's pixels", PICTURE_PIXELS, differing);
 
-		// Rows 0 to 6 and row 15 hold the coin alone: the picture starts at row 7 and keeps a row of air below.
+		// Rows 0 to 2, 5 and 8 hold the coin alone; row 15 and column 15 are clear.
+		final int[] coinRows = {0, 1, 2, 5, 8};
 		for (int x = 0; x < NavIcon.SIZE; x++)
 		{
-			for (int y = 0; y <= 6; y++)
+			for (final int y : coinRows)
 			{
 				assertEquals("row " + y + " is the coin alone at " + x, coin.getRGB(x, y), icon.getRGB(x, y));
 			}
 			assertClear("row 15", icon, x, 15);
+			assertClear("column 15", icon, 15, x);
 		}
 
-		// The back card: its top edge, its right edge down to row 11, its two pixels of left edge, the hollow inside.
-		assertPixel("soft grey", SOFT, icon, 10, 7);
-		assertPixel("soft grey", SOFT, icon, 15, 7);
-		assertPixel("soft grey", SOFT, icon, 10, 8);
-		assertPixel("soft grey", SOFT, icon, 15, 11);
-		assertClear("the back card's hollow", icon, 12, 8);
-		// The clear ring between the cards: the back card's left edge and bottom edge cut away.
-		assertClear("the ring", icon, 10, 9);
-		assertClear("the ring", icon, 14, 10);
-		assertClear("the ring", icon, 14, 11);
-		assertClear("the ring", icon, 15, 12);
-		// The front card: its four corners, its hollow, and the blue line inside.
-		assertPixel("white", WHITE, icon, 7, 10);
-		assertPixel("white", WHITE, icon, 13, 10);
-		assertPixel("white", WHITE, icon, 7, 14);
-		assertPixel("white", WHITE, icon, 13, 14);
-		assertClear("the front card's hollow", icon, 8, 11);
-		assertClear("the front card's hollow", icon, 12, 13);
-		assertClear("the air before the line", icon, 8, 12);
-		assertPixel("blue", BLUE, icon, 9, 12);
-		assertPixel("blue", BLUE, icon, 10, 12);
-		assertPixel("blue", BLUE, icon, 11, 12);
-		assertClear("the air after the line", icon, 12, 12);
+		// The far back: faint grey, two by two.
+		assertPixel("faint", FAINT, icon, 13, 3);
+		assertPixel("faint", FAINT, icon, 14, 3);
+		assertPixel("faint", FAINT, icon, 13, 4);
+		assertPixel("faint", FAINT, icon, 14, 4);
+		assertClear("beside the far back", icon, 12, 3);
+		assertClear("beside the far back", icon, 15, 3);
+		// The mid back: mid grey, four by two.
+		assertPixel("mid grey", MID, icon, 11, 6);
+		assertPixel("mid grey", MID, icon, 14, 6);
+		assertPixel("mid grey", MID, icon, 11, 7);
+		assertPixel("mid grey", MID, icon, 14, 7);
+		assertClear("beside the mid back", icon, 10, 6);
+		// The bubble: white corners and the tail, the hollow clear.
+		assertPixel("white", WHITE, icon, 8, 9);
+		assertPixel("white", WHITE, icon, 14, 9);
+		assertPixel("white", WHITE, icon, 8, 13);
+		assertPixel("white", WHITE, icon, 14, 13);
+		assertPixel("the tail", WHITE, icon, 9, 14);
+		assertClear("beside the tail", icon, 8, 14);
+		assertClear("beside the tail", icon, 10, 14);
+		assertClear("the bubble's hollow", icon, 9, 10);
+		assertClear("the bubble's hollow", icon, 13, 12);
+		// The word: three orange pixels with air either side.
+		assertPixel("orange", ORANGE, icon, 10, 11);
+		assertPixel("orange", ORANGE, icon, 11, 11);
+		assertPixel("orange", ORANGE, icon, 12, 11);
+		assertClear("the air before the word", icon, 9, 11);
+		assertClear("the air after the word", icon, 13, 11);
 	}
 }

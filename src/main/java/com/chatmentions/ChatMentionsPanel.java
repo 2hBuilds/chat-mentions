@@ -58,6 +58,7 @@ import javax.swing.Scrollable;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
@@ -207,6 +208,13 @@ public class ChatMentionsPanel extends PluginPanel
 	private static final int TIP_ROOM = 10;
 	/** The column's first two children, the how-to's holder and the tip's, which {@link #syncCards} leaves where they are. */
 	private static final int FIXED_PARTS = 2;
+	/**
+	 * The keyword strip's ground: the panel's own colour inside a 1 px rim, so the strip reads as an outlined area of the
+	 * panel, the same ground as the tabs under it, and never as one more card (the user, 2026-10-29: the well belongs on
+	 * the keywords, and in the colour round the chat tabs).
+	 */
+	static final Color WELL = ColorScheme.DARKER_GRAY_COLOR;
+	static final Color WELL_RIM = new Color(52, 52, 52);
 
 	/** A card's border at rest and under the mouse; the bar takes the room the resting border leaves. */
 	private static final Border CARD_BORDER = new EmptyBorder(CARD_PADDING, CARD_PADDING, CARD_PADDING, CARD_PADDING);
@@ -237,10 +245,13 @@ public class ChatMentionsPanel extends PluginPanel
 	private final Consumer<String> copyName;
 	private final SupportLinks support;
 	private final Map<Chat, JCheckBoxMenuItem> watchChecks = new EnumMap<>(Chat.class);
+	/** The hover on the Block what the chatbox blocks check. */
+	static final String FOLLOW_FILTER_TIP = "Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. Spam getting through? Add the words to Chat Filter.";
 	/** The hover on the whole-words check. */
 	static final String WHOLE_WORDS_TIP = "Ticked: 2h matches only the word 2h. Unticked: 2h also matches 2hbuilds.";
 
 	private JCheckBoxMenuItem wholeWordsCheck;
+	private JCheckBoxMenuItem followFilterCheck;
 	private JTextField keywordsBox;
 	private JPanel keywordChips;
 	private JTextField keywordField;
@@ -296,7 +307,7 @@ public class ChatMentionsPanel extends PluginPanel
 
 	/**
 	 * @param resetToDefault what "Reset to default" does: puts the plugin's settings back to their defaults
-	 * @param settings the fourteen settings the menu shows and writes
+	 * @param settings the fifteen settings the menu shows and writes
 	 * @param picker opens the colour picker for the keyword colour
 	 * @param feed the kept lines and the cards the panel shows
 	 * @param icons the senders' rank icons the client thread captured
@@ -580,7 +591,7 @@ public class ChatMentionsPanel extends PluginPanel
 		count.setText(0 + UNREAD_TEXT);
 		row.add(count);
 		row.add(Box.createHorizontalGlue());
-		row.add(link(CLEAR_TEXT, () -> feed.ledger().clear(), null));
+		row.add(link(CLEAR_TEXT, () -> feed.ledger().clear(shown), null));
 		row.add(Box.createHorizontalStrut(PADDING));
 		row.add(support.supportPair(settingsIcon()));
 		card.add(row, BorderLayout.CENTER);
@@ -608,11 +619,17 @@ public class ChatMentionsPanel extends PluginPanel
 		scroll.getViewport().setOpaque(false);
 		scroll.getVerticalScrollBar().setUnitIncrement(SCROLL_STEP);
 
+		// The strip stands GAP under the well, as the cards stand apart, so the two never touch.
+		final JPanel strip = new JPanel(new BorderLayout());
+		strip.setOpaque(false);
+		strip.setBorder(new EmptyBorder(GAP, 0, 0, 0));
+		strip.add(keywordStrip(), BorderLayout.CENTER);
+
 		final JPanel half = new JPanel(new BorderLayout());
 		half.setOpaque(false);
 		half.add(scroll, BorderLayout.CENTER);
-		half.add(keywordStrip(), BorderLayout.SOUTH);
-		sized(half, STRIP_HEIGHT + HALF_MIN_HEIGHT);
+		half.add(strip, BorderLayout.SOUTH);
+		sized(half, GAP + STRIP_HEIGHT + HALF_MIN_HEIGHT);
 		cardsHalfPanel = half;
 		return half;
 	}
@@ -904,8 +921,9 @@ public class ChatMentionsPanel extends PluginPanel
 	}
 
 	/**
-	 * Makes the column again from the ledger, newest first, keeping the panel of a mention already shown; sets the count,
-	 * and shows the tip line in the column while the ledger is empty. Runs on the event thread.
+	 * Makes the column again from the ledger, newest first, the lit tab's mentions only (every one on All), keeping the
+	 * panel of a mention already shown; sets the count to the cards shown, and shows the tip line in the column while the
+	 * lit tab has none. Runs on the event thread.
 	 *
 	 * <p>Choice: the queued flag is let go before the ledger is read, so a change that comes while this runs asks for a
 	 * sync of its own. The how-to goes only when the first card replaces the tip, so
@@ -914,7 +932,14 @@ public class ChatMentionsPanel extends PluginPanel
 	private void syncCards()
 	{
 		cardsQueued.set(false);
-		final List<Mention> mentions = feed.ledger().mentions();
+		final List<Mention> mentions = new ArrayList<>();
+		for (final Mention m : feed.ledger().mentions())
+		{
+			if (shown == null || shown == Chat.ALL || m.chat() == shown)
+			{
+				mentions.add(m);
+			}
+		}
 		final Map<Mention, JPanel> kept = new IdentityHashMap<>();
 		while (column.getComponentCount() > FIXED_PARTS)
 		{
@@ -1128,6 +1153,7 @@ public class ChatMentionsPanel extends PluginPanel
 			return;
 		}
 		shown = chat;
+		queueCardsSync();
 		chatView.setDocument(documents.get(chat));
 		chatScroll.validate();
 		if (fromNewest)
@@ -1419,7 +1445,7 @@ public class ChatMentionsPanel extends PluginPanel
 
 	/**
 	 * The settings menu, in STANDARD A5's order: the header (focusable, so the menu's window takes the keyboard and no
-	 * box holds a caret), a rule, the "Watch" caption and the six chat checks, a rule, the whole-words check, a rule,
+	 * box holds a caret), a rule, the "Watch" caption and the six chat checks, a rule, the whole-words check and the Block what the chatbox blocks check, a rule,
 	 * a rule, the "Colours" caption with its two indented rows ("Default keyword colour" with the swatch at the right
 	 * end, "Reset all keyword colours"), a rule, the keywords box and the two number boxes, a rule, then the OK row.
 	 */
@@ -1444,6 +1470,9 @@ public class ChatMentionsPanel extends PluginPanel
 		wholeWordsCheck = check("Whole words only", on -> settings.setWholeWordsOnly(on));
 		wholeWordsCheck.setToolTipText(WHOLE_WORDS_TIP);
 		popup.add(wholeWordsCheck);
+		followFilterCheck = check("Block what the chatbox blocks", on -> settings.setFollowChatFilter(on));
+		followFilterCheck.setToolTipText(FOLLOW_FILTER_TIP);
+		popup.add(followFilterCheck);
 		popup.addSeparator();
 		popup.add(captionRow(COLOURS_TEXT));
 		popup.add(colourRow());
@@ -1499,11 +1528,52 @@ public class ChatMentionsPanel extends PluginPanel
 		return row;
 	}
 
+	/** The ground a menu item takes under the mouse, from the look and feel; the pressable rows take the same. */
+	static Color menuHover()
+	{
+		final Color laf = UIManager.getColor("MenuItem.selectionBackground");
+		return laf != null ? laf : ColorScheme.DARK_GRAY_HOVER_COLOR;
+	}
+
+	/**
+	 * Gives a pressable menu row the menu items' hover: its ground darkens while the mouse is over it, its caption
+	 * included, so it reads as something to press (the user, 2026-10-28: "it isnt obvious you can click it").
+	 *
+	 * <p>Choice: leaving the row for its own caption fires an exit on the row; the ground goes only when the mouse is
+	 * outside the row itself.
+	 */
+	private static void hoverLikeAMenuItem(JPanel row, JLabel caption)
+	{
+		row.setBackground(menuHover());
+		final MouseAdapter hover = new MouseAdapter()
+		{
+			@Override
+			public void mouseEntered(MouseEvent e)
+			{
+				row.setOpaque(true);
+				row.repaint();
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e)
+			{
+				if (!row.contains(SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), row)))
+				{
+					row.setOpaque(false);
+					row.repaint();
+				}
+			}
+		};
+		row.addMouseListener(hover);
+		caption.addMouseListener(hover);
+	}
+
 	/** The menu's "How to use" row: a pressable caption that takes the menu down and shows the how-to. */
 	private JPanel howToRow()
 	{
 		final JPanel row = captionRow(HOW_TO_TEXT);
 		final JLabel caption = (JLabel) row.getComponent(0);
+		hoverLikeAMenuItem(row, caption);
 		// White at rest like every row a player can press (the user, 2026-10-28); grey is for the captions alone.
 		caption.setForeground(Color.WHITE);
 		row.setName(HOW_TO_ROW_NAME);
@@ -1546,6 +1616,7 @@ public class ChatMentionsPanel extends PluginPanel
 	{
 		final JPanel row = captionRow(RESET_COLOURS_TEXT);
 		final JLabel caption = (JLabel) row.getComponent(0);
+		hoverLikeAMenuItem(row, caption);
 		caption.setForeground(Color.WHITE);
 		row.setName(KEYWORD_CLEAR_NAME);
 		row.setBorder(new EmptyBorder(2, COLOURS_INDENT, 2, 6));
@@ -1676,8 +1747,10 @@ public class ChatMentionsPanel extends PluginPanel
 		final JPanel strip = new JPanel();
 		strip.setName(STRIP_NAME);
 		strip.setLayout(new BoxLayout(strip, BoxLayout.Y_AXIS));
-		strip.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		strip.setBorder(new EmptyBorder(STRIP_PADDING, STRIP_PADDING, STRIP_PADDING, STRIP_PADDING));
+		// The strip on the panel's own colour inside a 1 px rim, so it never reads as one more card (the user, 2026-10-29).
+		strip.setBackground(WELL);
+		strip.setBorder(new CompoundBorder(new MatteBorder(1, 1, 1, 1, WELL_RIM),
+			new EmptyBorder(STRIP_PADDING - 1, STRIP_PADDING - 1, STRIP_PADDING - 1, STRIP_PADDING - 1)));
 
 		keywordChips = new JPanel(new WrapLayout(KEYWORD_GAP))
 		{
@@ -1895,6 +1968,7 @@ public class ChatMentionsPanel extends PluginPanel
 				entry.getValue().setSelected(settings.watched(entry.getKey()));
 			}
 			wholeWordsCheck.setSelected(settings.wholeWordsOnly());
+			followFilterCheck.setSelected(settings.followChatFilter());
 			syncSwatch();
 			final String words = settings.keywords();
 			final String shown = words == null ? "" : words;
