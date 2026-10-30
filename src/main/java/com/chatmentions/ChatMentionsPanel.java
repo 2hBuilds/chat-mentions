@@ -38,6 +38,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
@@ -123,6 +124,9 @@ public class ChatMentionsPanel extends PluginPanel
 	static final String HOW_TO_STEP_NAME = "how-to-step";
 	static final String HOW_TO_NOTE_NAME = "how-to-note";
 	static final String HOW_TO_ROW_NAME = "how-to-row";
+	static final String HELP_NAME = "how-to-help";
+	/** The (?)'s one-word hover. */
+	static final String HELP_TIP = "Help";
 
 	/** The words of the top card and of a card. */
 	static final String TITLE_TEXT = "Mentions";
@@ -148,7 +152,7 @@ public class ChatMentionsPanel extends PluginPanel
 	private static final String HOW_TO_INTRO = "Every chat line that names you or a keyword becomes a card.";
 	/** The note under the steps, the words exactly. */
 	private static final String HOW_TO_NOTE =
-		"This guide hides when your first keyword card comes in. 'How to use' in the settings menu brings it back.";
+		"This guide hides when your first card comes in. 'How to use' in the settings menu opens it anytime.";
 	/** The how-to's six steps, the words exactly. */
 	private static final String[] HOW_TO_STEPS = {
 		"Add keywords under the cards. Your name is one.",
@@ -226,6 +230,9 @@ public class ChatMentionsPanel extends PluginPanel
 	private static final int ICON_ROOM = 4;
 	/** The settings icon's size, in px. */
 	private static final int ICON_SIZE = 12;
+	/** The (?) in its two colours: gold while the guide is hidden, white while it shows. */
+	private static final ImageIcon HELP_GOLD = HelpGlyph.icon(ICON_SIZE, ColorScheme.BRAND_ORANGE);
+	private static final ImageIcon HELP_WHITE = HelpGlyph.icon(ICON_SIZE, Color.WHITE);
 	/** A press on the settings icon this soon after the menu closed is the press that closed it, not a new open. */
 	private static final long REOPEN_GUARD_NANOS = 250_000_000L;
 	/** The gap between a row's caption and its control, in px. */
@@ -276,7 +283,13 @@ public class ChatMentionsPanel extends PluginPanel
 	private JPanel howTo;
 	/** The cards half, whose least height is the strip's plus 40 px whatever the how-to does. */
 	private JPanel cardsHalfPanel;
-	private boolean howToShown = true;
+	private boolean howToShown;
+	/** The "Clear" word, which shows only while the selected tab shows a card. */
+	private JLabel clearLabel;
+	/** The (?) beside the Discord mark, in Clear's place: it shows while the selected tab shows no card. */
+	private JLabel helpIcon;
+	/** True while the mouse is over the (?). */
+	private boolean helpHovered;
 	/** True while the cards half shows the tip; the how-to goes when the first card replaces it. */
 	private boolean tipShown = true;
 	/** True from a keyword chip's click until the picker it opened is closed. */
@@ -591,7 +604,11 @@ public class ChatMentionsPanel extends PluginPanel
 		count.setText(0 + UNREAD_TEXT);
 		row.add(count);
 		row.add(Box.createHorizontalGlue());
-		row.add(link(CLEAR_TEXT, () -> feed.ledger().clear(shown), null));
+		clearLabel = link(CLEAR_TEXT, () -> feed.ledger().clear(shown), null);
+		clearLabel.setVisible(false);
+		row.add(clearLabel);
+		helpIcon = helpIcon();
+		row.add(helpIcon);
 		row.add(Box.createHorizontalStrut(PADDING));
 		row.add(support.supportPair(settingsIcon()));
 		card.add(row, BorderLayout.CENTER);
@@ -652,7 +669,7 @@ public class ChatMentionsPanel extends PluginPanel
 		};
 		tipHolder.setOpaque(false);
 		tipHolder.setAlignmentX(Component.LEFT_ALIGNMENT);
-		tipHolder.setBorder(new EmptyBorder(TIP_ROOM - GAP, 0, TIP_ROOM, 0));
+		tipHolder.setBorder(new EmptyBorder(TIP_ROOM, 0, TIP_ROOM, 0));
 		tipHolder.add(tip, BorderLayout.CENTER);
 		tipHolder.addComponentListener(new ComponentAdapter()
 		{
@@ -800,6 +817,7 @@ public class ChatMentionsPanel extends PluginPanel
 		howTo.setAlignmentX(Component.LEFT_ALIGNMENT);
 		howTo.setBorder(new EmptyBorder(0, 0, GAP, 0));
 		howTo.add(card, BorderLayout.CENTER);
+		howTo.setVisible(false);
 		return howTo;
 	}
 
@@ -819,6 +837,7 @@ public class ChatMentionsPanel extends PluginPanel
 	{
 		howToShown = on;
 		howTo.setVisible(on);
+		paintHelp();
 		tipHolder.setBorder(new EmptyBorder(on ? TIP_ROOM - GAP : TIP_ROOM, 0, TIP_ROOM, 0));
 		column.revalidate();
 		column.repaint();
@@ -975,6 +994,8 @@ public class ChatMentionsPanel extends PluginPanel
 		}
 		tipShown = mentions.isEmpty();
 		tipHolder.setVisible(mentions.isEmpty());
+		clearLabel.setVisible(!mentions.isEmpty());
+		helpIcon.setVisible(mentions.isEmpty());
 		column.revalidate();
 		column.repaint();
 	}
@@ -1415,6 +1436,52 @@ public class ChatMentionsPanel extends PluginPanel
 		final JViewport viewport = chatScroll.getViewport();
 		final int most = Math.max(0, viewport.getViewSize().height - viewport.getExtentSize().height);
 		viewport.setViewPosition(new Point(0, most));
+	}
+
+	/**
+	 * The (?): gold while the guide is hidden, white while it shows (the user, 2026-10-30), and the other colour under
+	 * the mouse; a left press opens or closes the guide. Not {@link SupportLinks#namedIconButton}, whose two icons are
+	 * fixed.
+	 */
+	private JLabel helpIcon()
+	{
+		final JLabel icon = new JLabel(HELP_GOLD);
+		icon.setName(HELP_NAME);
+		icon.setToolTipText(HELP_TIP);
+		icon.setBorder(SupportLinks.iconBorder());
+		icon.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		icon.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mousePressed(MouseEvent e)
+			{
+				if (SwingUtilities.isLeftMouseButton(e) && !e.isPopupTrigger())
+				{
+					showHowTo(!howToShown);
+				}
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent e)
+			{
+				helpHovered = true;
+				paintHelp();
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e)
+			{
+				helpHovered = false;
+				paintHelp();
+			}
+		});
+		return icon;
+	}
+
+	/** Sets the (?)'s colour from whether the guide shows and whether the mouse is over it. */
+	private void paintHelp()
+	{
+		helpIcon.setIcon(howToShown != helpHovered ? HELP_WHITE : HELP_GOLD);
 	}
 
 	/** The settings icon: grey at rest, orange under the mouse; a press opens the menu under it. */

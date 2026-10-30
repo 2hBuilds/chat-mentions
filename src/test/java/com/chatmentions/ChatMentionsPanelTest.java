@@ -599,6 +599,7 @@ public class ChatMentionsPanelTest
 	public void theHowToShowsAtStartWithItsSteps() throws Exception
 	{
 		open();
+		openGuide();
 		onEdt(() ->
 		{
 			final Container howTo = (Container) named(shown, ChatMentionsPanel.HOW_TO_NAME);
@@ -619,7 +620,7 @@ public class ChatMentionsPanelTest
 			assertTrue("the hook is bold", labelSaying(howTo, "Catch up after being away:").getFont().isBold());
 			final JLabel note = (JLabel) named(howTo, ChatMentionsPanel.HOW_TO_NOTE_NAME);
 			assertNotNull("the note under the steps", note);
-			assertEquals("This guide hides when your first keyword card comes in. 'How to use' in the settings menu brings it back.",
+			assertEquals("This guide hides when your first card comes in. 'How to use' in the settings menu opens it anytime.",
 				plain(note.getText()));
 			assertEquals("the note is grey", ColorScheme.LIGHT_GRAY_COLOR, note.getForeground());
 			assertTrue("the note is under the last step", note.getLocationOnScreen().y
@@ -708,6 +709,7 @@ public class ChatMentionsPanelTest
 	public void theHowToWrapsToTheCardsWidthAndNeverClips() throws Exception
 	{
 		open();
+		openGuide();
 		onEdt(() -> assertHowToFits(260));
 		final int before = lastSentenceHeight;
 		onEdt(() ->
@@ -762,10 +764,192 @@ public class ChatMentionsPanelTest
 
 	private int lastSentenceHeight;
 
+	/** Opens the guide with the (?) the way a player does, on the event thread, and lays the panel out. */
+	private void openGuide() throws Exception
+	{
+		onEdt(() ->
+		{
+			leftPress(named(shown, ChatMentionsPanel.HELP_NAME));
+			window.validate();
+		});
+	}
+
+	/** True when a showing label in {@code root} says {@code text}. */
+	private static boolean showsLabel(Container root, String text)
+	{
+		for (final Component child : root.getComponents())
+		{
+			if (child instanceof JLabel && text.equals(((JLabel) child).getText()) && child.isShowing())
+			{
+				return true;
+			}
+			if (child instanceof Container && showsLabel((Container) child, text))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Test
+	public void theGuideStartsHiddenWithTheGoldHelpMark() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			assertFalse(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+			final JLabel help = (JLabel) named(shown, ChatMentionsPanel.HELP_NAME);
+			assertTrue(help.isShowing());
+			assertEquals("Help", help.getToolTipText());
+			assertFalse("no Clear yet", showsLabel(labelSaying(shown, "Mentions").getParent(), "Clear"));
+			assertTrue(named(shown, ChatMentionsPanel.TIP_NAME).isShowing());
+		});
+	}
+
+	@Test
+	public void theHelpMarkOpensAndClosesTheGuide() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final Component help = named(shown, ChatMentionsPanel.HELP_NAME);
+			leftPress(help);
+			window.validate();
+			assertTrue(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+			leftPress(help);
+			window.validate();
+			assertFalse(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+			leftPress(help);
+			window.validate();
+			assertTrue(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+			leftPress(named(shown, ChatMentionsPanel.HOW_TO_HIDE_NAME));
+			assertFalse(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+		});
+	}
+
+	@Test
+	public void theHelpMarkIsWhiteWhileTheGuideShowsAndGoldWhileHidden() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final JLabel help = (JLabel) named(shown, ChatMentionsPanel.HELP_NAME);
+			assertEquals("gold while hidden", ColorScheme.BRAND_ORANGE.getRGB() & 0xFFFFFF, inkOf(help));
+			help.dispatchEvent(new MouseEvent(help, MouseEvent.MOUSE_ENTERED, System.currentTimeMillis(), 0, 2, 2, 0, false));
+			assertEquals("white under the mouse", 0xFFFFFF, inkOf(help));
+			leftPress(help);
+			assertEquals("gold under the mouse once the guide shows", ColorScheme.BRAND_ORANGE.getRGB() & 0xFFFFFF,
+				inkOf(help));
+			help.dispatchEvent(new MouseEvent(help, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, 2, 2, 0, false));
+			assertEquals("white while the guide shows", 0xFFFFFF, inkOf(help));
+			leftPress(named(shown, ChatMentionsPanel.HOW_TO_HIDE_NAME));
+			assertEquals("gold again once hidden", ColorScheme.BRAND_ORANGE.getRGB() & 0xFFFFFF, inkOf(help));
+		});
+	}
+
+	/** The RGB of the first fully opaque pixel of a label's icon. */
+	private static int inkOf(JLabel label)
+	{
+		final java.awt.image.BufferedImage img =
+			(java.awt.image.BufferedImage) ((javax.swing.ImageIcon) label.getIcon()).getImage();
+		for (int y = 0; y < img.getHeight(); y++)
+		{
+			for (int x = 0; x < img.getWidth(); x++)
+			{
+				if (img.getRGB(x, y) >>> 24 == 255)
+				{
+					return img.getRGB(x, y) & 0xFFFFFF;
+				}
+			}
+		}
+		return -1;
+	}
+
+	@Test
+	public void theHelpMarkSitsBesideTheDiscordMark() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final Component help = named(shown, ChatMentionsPanel.HELP_NAME);
+			final Component settings = settingsIcon(shown);
+			final int helpRight = help.getLocationOnScreen().x + help.getWidth();
+			final int settingsLeft = settings.getLocationOnScreen().x;
+			assertTrue("left of the settings icon", helpRight <= settingsLeft);
+			assertTrue("within 40 px: " + (settingsLeft - helpRight), settingsLeft - helpRight <= 40);
+			final int helpMid = help.getLocationOnScreen().y + help.getHeight() / 2;
+			final int settingsMid = settings.getLocationOnScreen().y + settings.getHeight() / 2;
+			assertTrue("same band", Math.abs(helpMid - settingsMid) <= 3);
+		});
+	}
+
+	@Test
+	public void theFirstCardHidesTheHelpMarkAndShowsClear() throws Exception
+	{
+		open();
+		openGuide();
+		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz 2h", 1000);
+		flush();
+		onEdt(() ->
+		{
+			assertFalse(named(shown, ChatMentionsPanel.HELP_NAME).isShowing());
+			assertFalse(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
+			assertTrue(showsLabel(labelSaying(shown, "Mentions").getParent(), "Clear"));
+		});
+	}
+
+	@Test
+	public void theHelpMarkComesBackWhenTheCardsAreCleared() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz 2h", 1000);
+		flush();
+		feed.ledger().clear();
+		flush();
+		onEdt(() ->
+		{
+			assertEquals(0, cards().size());
+			assertTrue(named(shown, ChatMentionsPanel.HELP_NAME).isShowing());
+			assertFalse(showsLabel(labelSaying(shown, "Mentions").getParent(), "Clear"));
+		});
+	}
+
+	@Test
+	public void clearShowsOnlyWhenTheSelectedTabHasCards() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz 2h", 1000);
+		flush();
+		onEdt(() -> leftPress(chip("Public")));
+		flush();
+		onEdt(() ->
+		{
+			assertFalse(showsLabel(labelSaying(shown, "Mentions").getParent(), "Clear"));
+			assertTrue("the (?) in its place", named(shown, ChatMentionsPanel.HELP_NAME).isShowing());
+		});
+		onEdt(() -> leftPress(chip("Clan")));
+		flush();
+		onEdt(() ->
+		{
+			assertTrue(showsLabel(labelSaying(shown, "Mentions").getParent(), "Clear"));
+			assertFalse(named(shown, ChatMentionsPanel.HELP_NAME).isShowing());
+		});
+	}
+
+	@Test
+	public void theHideLinkIsGreyLikeTheOtherLinks() throws Exception
+	{
+		open();
+		openGuide();
+		onEdt(() -> assertEquals(ColorScheme.LIGHT_GRAY_COLOR,
+			named(shown, ChatMentionsPanel.HOW_TO_HIDE_NAME).getForeground()));
+	}
+
 	@Test
 	public void theFirstCardHidesTheHowTo() throws Exception
 	{
 		open();
+		openGuide();
 		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz 2h", 1000);
 		flush();
 		onEdt(() ->
@@ -786,6 +970,7 @@ public class ChatMentionsPanelTest
 	public void hideHidesAndTheMenuRowShowsAgain() throws Exception
 	{
 		open();
+		openGuide();
 		onEdt(() ->
 		{
 			assertTrue(named(shown, ChatMentionsPanel.HOW_TO_NAME).isShowing());
@@ -1538,6 +1723,7 @@ public class ChatMentionsPanelTest
 	public void theHalfScrollsOverTheHowToOnAShortWindow() throws Exception
 	{
 		open();
+		openGuide();
 		onEdt(() ->
 		{
 			window.setSize(260, 400);
@@ -1640,6 +1826,7 @@ public class ChatMentionsPanelTest
 	public void theTipSitsUnderTheHowToThenAtTheTop() throws Exception
 	{
 		open();
+		openGuide();
 		flush();
 		onEdt(() ->
 		{

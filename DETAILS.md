@@ -9,10 +9,13 @@ the chat lines RuneLite hands every plugin, and keeps them only while RuneLite i
 
 ## What the sidebar shows
 
-**The top card**: *Mentions*, how many cards the selected tab shows, **Clear** (the selected tab's cards; on All, every card), and the Discord mark and the settings icon.
+**The top card**: *Mentions*, how many cards the selected tab shows, **Clear** (the selected tab's cards; on All,
+every card; it shows only while there are cards to clear), a gold **(?)** in its place while there are none, and
+the Discord mark and the settings icon.
 
-**The guide**, under it, at every start: what the plugin does and six steps. It hides when your first card comes
-in, or when you press **Hide**. **How to use** in the settings menu brings it back. Nothing about it is saved.
+**The guide** starts hidden: press the gold **(?)** at the top to open it. The **(?)** shows while the selected tab
+has no cards. **How to use** in the settings menu opens the guide anytime, and **Hide** closes it. Nothing about it
+is saved.
 
 **The cards**, newest first, of the selected tab: on **Clan** only the Clan cards, on **All** every card. A line
 from another kept chat still makes its card, and that chat's tab or All shows it. One card is who said it, which chat, the time, and the line with the keyword
