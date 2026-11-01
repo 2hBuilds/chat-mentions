@@ -19,7 +19,7 @@ public interface ChatMentionsConfig extends Config
 	@ConfigItem(
 		keyName = "keywords",
 		name = "Keywords",
-		description = "Words that make a card, separated by commas. Your own name is always one.",
+		description = "Words that make a card, separated by commas. Your display name is one too, unless Use display name as keyword is off.",
 		position = 1
 	)
 	default String keywords()
@@ -29,7 +29,7 @@ public interface ChatMentionsConfig extends Config
 
 	@ConfigItem(
 		keyName = "wholeWordsOnly",
-		name = "Whole words only",
+		name = "Match whole words only",
 		description = "A keyword counts as a whole word only. Untick to match it inside longer words too, like 2h in 2hbuilds.",
 		position = 2
 	)
@@ -39,10 +39,21 @@ public interface ChatMentionsConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "nameIsKeyword",
+		name = "Use display name as keyword",
+		description = "Your display name makes cards like a keyword. Untick to get cards for your keywords only.",
+		position = 3
+	)
+	default boolean nameIsKeyword()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "followChatFilter",
 		name = "Block what the chatbox blocks",
 		description = "Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. Spam getting through? Add the words to Chat Filter.",
-		position = 3
+		position = 4
 	)
 	default boolean followChatFilter()
 	{
@@ -53,7 +64,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchPublic",
 		name = "Public",
 		description = "Keep the public chat and show cards from it.",
-		position = 4
+		position = 5
 	)
 	default boolean watchPublic()
 	{
@@ -64,7 +75,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchPrivate",
 		name = "Private",
 		description = "Keep private messages and show cards from them.",
-		position = 5
+		position = 6
 	)
 	default boolean watchPrivate()
 	{
@@ -75,7 +86,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchChannel",
 		name = "Channel",
 		description = "Keep the friends chat (the Channel tab) and show cards from it.",
-		position = 6
+		position = 7
 	)
 	default boolean watchChannel()
 	{
@@ -86,7 +97,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchClan",
 		name = "Clan",
 		description = "Keep the clan, guest clan and group ironman chat and show cards from it.",
-		position = 7
+		position = 8
 	)
 	default boolean watchClan()
 	{
@@ -97,7 +108,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchGame",
 		name = "Game",
 		description = "Keep the game's own messages, for reading.",
-		position = 8
+		position = 9
 	)
 	default boolean watchGame()
 	{
@@ -108,7 +119,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "watchTrade",
 		name = "Trade",
 		description = "Keep trade and challenge requests, for reading.",
-		position = 9
+		position = 10
 	)
 	default boolean watchTrade()
 	{
@@ -119,7 +130,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "cardsKept",
 		name = "Cards kept",
 		description = "How many mention cards the panel keeps for each chat.",
-		position = 10
+		position = 11
 	)
 	@Range(min = 1, max = 1000)
 	default int cardsKept()
@@ -131,7 +142,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "linesKept",
 		name = "Chat lines kept",
 		description = "How many lines of each chat are kept.",
-		position = 11
+		position = 12
 	)
 	@Range(min = 100, max = 20000)
 	default int linesKept()
@@ -143,7 +154,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "defaultKeywordColour",
 		name = "Default keyword colour",
 		description = "The colour of your name and of every keyword without a colour of its own, in the cards and the kept chat.",
-		position = 12
+		position = 13
 	)
 	default Color defaultKeywordColour()
 	{
@@ -154,7 +165,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "keywordColours",
 		name = "Keyword colours",
 		description = "A colour per keyword, as word=rrggbb pairs separated by commas. Click a keyword in the panel to set one.",
-		position = 13
+		position = 14
 	)
 	default String keywordColours()
 	{
@@ -165,7 +176,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "cardsShare",
 		name = "Cards share",
 		description = "How much of the panel's height the cards take, in percent. Drag the divider to set it.",
-		position = 14
+		position = 15
 	)
 	@Range(min = 10, max = 90)
 	default int cardsShare()
@@ -177,7 +188,7 @@ public interface ChatMentionsConfig extends Config
 		keyName = "shownTab",
 		name = "Tab shown",
 		description = "The chat tab the panel opens on.",
-		position = 15
+		position = 16
 	)
 	default String shownTab()
 	{

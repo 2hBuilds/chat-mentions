@@ -24,11 +24,12 @@ goes). A click anywhere else on the card lights that chat's tab and scrolls the 
 darker. A line that has already left the kept chat scrolls the view to the top instead. While there is no card,
 a tip shows in the cards' place, a different one each time.
 
-**The keyword strip**, at the foot of the cards half. Your name is the first chip and cannot be removed; its
-colour is the default keyword colour, and a click on it opens the colour picker for that default. Each keyword
+**The keyword strip**, at the foot of the cards half. Your name is the first chip and cannot be removed; it
+shows while **Use display name as keyword** is on, its colour is the default keyword colour, and a click on it opens the colour picker for that default. Each keyword
 you add is a chip with a **x** that removes it; a click on the chip's word opens the picker for that keyword's
 own colour. The box under the chips adds keywords: type one, or several separated by commas, and press Enter or
-the **+**. A word already in the list is not added twice.
+the **+**. A word already in the list is not added twice; its chip glows gold twice instead. The options icon at the strip's top right opens a small
+popup holding **Match whole words only** and **Use display name as keyword**.
 
 **The tabs**, the game's own: **All**, **Game**, **Public**, **Private**, **Channel**, **Clan**, **Trade**. A tab
 shows while its chat is kept (All always). All shows every kept chat together, each line with its chat in grey
@@ -45,8 +46,8 @@ back in the same proportion at any window size.
 ## What makes a card
 
 - A line typed by a player other than you, in a kept chat, that holds your name or a keyword as a whole word.
-- Your name is always a keyword, in any case: *2hBuilds*, *2HBUILDS* and *2hbuilds* all count.
-- With **Whole words only** unticked a keyword also counts inside a longer word, so *2h* fires on *2hbuilds*.
+- Your name is a keyword by default, in any case: *2hBuilds*, *2HBUILDS* and *2hbuilds* all count. Untick **Use display name as keyword** to get cards for your keywords only; a word you typed into Keywords still counts, even when it is your name.
+- With **Match whole words only** unticked a keyword also counts inside a longer word, so *2h* fires on *2hbuilds*.
 - The game's own lines never make a card, and neither does a line you sent yourself. Game and Trade lines are
   kept for reading only.
 - A card keeps its place while its line is kept; the oldest card of a chat goes when that chat holds more than **Cards kept**, so a busy
@@ -86,13 +87,14 @@ off or RuneLite closes. Your keywords, colours and settings are kept by RuneLite
 
 ## Settings
 
-Fifteen items, in RuneLite's settings panel and in the sidebar's settings menu alike; change one in either place
-and the other follows.
+Sixteen items, in RuneLite's settings panel and in the sidebar's settings menu alike; change one in either place
+and the other follows. Match whole words only and Use display name as keyword are also in the keyword strip's options icon.
 
 | Setting | What it does |
 |---|---|
-| Keywords | Words that make a card, separated by commas. Your own name is always one. |
-| Whole words only | A keyword counts as a whole word only. Untick to match it inside longer words too, like 2h in 2hbuilds. On by default. |
+| Keywords | Words that make a card, separated by commas. Your display name is one too, unless Use display name as keyword is off. |
+| Match whole words only | A keyword counts as a whole word only. Untick to match it inside longer words too, like 2h in 2hbuilds. On by default. |
+| Use display name as keyword | Your display name makes cards like a keyword. Untick to get cards for your keywords only. On by default. |
 | Block what the chatbox blocks | Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. On by default. |
 | Public | Keep the public chat and show cards from it. On by default. |
 | Private | Keep private messages and show cards from them. On by default. |

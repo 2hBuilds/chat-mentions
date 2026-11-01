@@ -26,7 +26,7 @@ public class MentionFeedTest
 	public void aSpokenLineWithAKeywordIsKeptAndMakesACard()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("Sanka");
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "<img=41>Klar", "<col=0000ff>gz 2h!</col>", 5000));
 
@@ -54,7 +54,7 @@ public class MentionFeedTest
 	public void anUnwatchedChatKeepsNothing()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.watch(Chat.PUBLIC, false);
 		assertFalse(feed.line(ChatMessageType.PUBLICCHAT, "Klar", "2h", 1));
 		assertEquals(0, feed.buffer(Chat.PUBLIC).lines().size());
@@ -69,7 +69,7 @@ public class MentionFeedTest
 	public void theGamesBroadcastIsKeptButMakesNoCard()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		assertFalse(feed.line(ChatMessageType.CLAN_MESSAGE, "", "2h has completed a quest", 1));
 		final List<ChatLine> lines = feed.buffer(Chat.CLAN).lines();
 		assertEquals(1, lines.size());
@@ -82,7 +82,7 @@ public class MentionFeedTest
 	public void thePlayersOwnLineMakesNoCard()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("<img=2>Sanka");
 		assertFalse(feed.line(ChatMessageType.CLAN_CHAT, "SANKA", "2h here", 1));
 		assertEquals(1, feed.buffer(Chat.CLAN).lines().size());
@@ -93,7 +93,7 @@ public class MentionFeedTest
 	public void thePlayersNameIsAlwaysAKeyword()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("", false);
+		feed.keywords("", false, true);
 		assertFalse(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz sanka", 1));
 
 		feed.playerName("Sanka");
@@ -102,7 +102,7 @@ public class MentionFeedTest
 		assertEquals(1, card.spans().size());
 		assertArrayEquals(new int[]{3, 8}, java.util.Arrays.copyOf(card.spans().get(0), 2));
 
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		assertTrue("the name is still a keyword", feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz sanka", 3));
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "2h", 4));
 	}
@@ -111,7 +111,7 @@ public class MentionFeedTest
 	public void theSendersIconIndexIsKept()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("<img=2>Sanka");
 		assertEquals("Sanka", feed.playerName());
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "<img=41>Klar", "2h here", 1));
@@ -131,7 +131,7 @@ public class MentionFeedTest
 	public void privateMessagesInAndOut()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("Sanka");
 		assertTrue(feed.line(ChatMessageType.PRIVATECHAT, "Klar", "2h?", 1));
 		assertFalse(feed.line(ChatMessageType.PRIVATECHATOUT, "Klar", "2h yes", 2));
@@ -148,7 +148,7 @@ public class MentionFeedTest
 	public void aKindThatIsNoChatAndNullsAreHarmless()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		assertFalse(feed.line(ChatMessageType.DIALOG, "", "2h", 1));
 		for (final Chat chat : Chat.values())
 		{
@@ -166,7 +166,7 @@ public class MentionFeedTest
 	public void theSizesFollowTheSettings()
 	{
 		final MentionFeed feed = new MentionFeed(3, 2);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("Sanka");
 		for (int i = 1; i <= 5; i++)
 		{
@@ -229,7 +229,7 @@ public class MentionFeedTest
 	public void aKeywordMatchesInAnyCase()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("2hBuilds");
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "2HBUILDS here", 1));
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "gz 2H", 2));
@@ -246,7 +246,7 @@ public class MentionFeedTest
 	public void gameAndTradeLinesAreKeptAndMakeNoCard()
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.watch(Chat.GAME, true);
 		feed.watch(Chat.TRADE, true);
 		assertFalse(feed.line(ChatMessageType.GAMEMESSAGE, "", "2h has logged in.", 1));
@@ -268,12 +268,53 @@ public class MentionFeedTest
 	{
 		final MentionFeed feed = new MentionFeed(100, 10);
 		feed.playerName("Sanka");
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		assertFalse(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "2hbuilds", 1));
-		feed.keywords("2h", true);
+		feed.keywords("2h", true, true);
 		assertTrue(feed.line(ChatMessageType.CLAN_CHAT, "Klar", "2hbuilds", 2));
 		final Mention card = feed.ledger().mentions().get(0);
 		assertEquals(1, card.spans().size());
 		assertArrayEquals(new int[]{0, 2}, java.util.Arrays.copyOf(card.spans().get(0), 2));
+	}
+
+	@Test
+	public void aLineWithOnlyTheNameMakesNoCardWhileTheNameIsOff()
+	{
+		final MentionFeed feed = new MentionFeed(100, 10);
+		feed.keywords("2h", false, false);
+		feed.playerName("Sanka");
+		assertFalse(feed.line(ChatMessageType.PUBLICCHAT, "Klar", "hi sanka", 1));
+		assertEquals(0, feed.ledger().mentions().size());
+		assertEquals("the line is still kept", 1, feed.buffer(Chat.PUBLIC).lines().size());
+	}
+
+	@Test
+	public void aKeywordStillMakesACardWhileTheNameIsOff()
+	{
+		final MentionFeed feed = new MentionFeed(100, 10);
+		feed.keywords("2h", false, false);
+		feed.playerName("Sanka");
+		assertTrue(feed.line(ChatMessageType.PUBLICCHAT, "Klar", "gz 2h sanka", 1));
+		assertEquals(1, feed.ledger().mentions().size());
+	}
+
+	@Test
+	public void theNameTypedAsAKeywordStillCountsWhileTheNameIsOff()
+	{
+		final MentionFeed feed = new MentionFeed(100, 10);
+		feed.keywords("sanka", false, false);
+		feed.playerName("Sanka");
+		assertTrue(feed.line(ChatMessageType.PUBLICCHAT, "Klar", "hi sanka", 1));
+		assertEquals(1, feed.ledger().mentions().size());
+	}
+
+	@Test
+	public void theNameMakesACardByDefault()
+	{
+		final MentionFeed feed = new MentionFeed(100, 10);
+		feed.keywords("", false, true);
+		feed.playerName("Sanka");
+		assertTrue(feed.line(ChatMessageType.PUBLICCHAT, "Klar", "hi sanka", 1));
+		assertEquals(1, feed.ledger().mentions().size());
 	}
 }

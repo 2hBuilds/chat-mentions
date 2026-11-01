@@ -28,6 +28,7 @@ final class MentionFeed
 	private final Set<Chat> watched = EnumSet.allOf(Chat.class);
 	private String setting = "";
 	private boolean partial;
+	private boolean nameIsKeyword = true;
 	private String playerName = "";
 	private Keywords keywords;
 	private final List<Consumer<Chat>> listeners = new ArrayList<>();
@@ -42,19 +43,29 @@ final class MentionFeed
 		keywords = Keywords.of(setting, partial, playerName);
 	}
 
-	/** Remembers the keyword setting and the partial switch; the player's name is always the first keyword. */
-	synchronized void keywords(String setting, boolean partial)
+	/**
+	 * Remembers the keyword setting, the partial switch and whether the player's name is a keyword; while it is, the
+	 * name is the first keyword. A word typed into the setting counts either way.
+	 */
+	synchronized void keywords(String setting, boolean partial, boolean nameIsKeyword)
 	{
 		this.setting = setting;
 		this.partial = partial;
-		keywords = Keywords.of(setting, partial, playerName);
+		this.nameIsKeyword = nameIsKeyword;
+		keywords = Keywords.of(setting, partial, keywordName());
 	}
 
 	/** Keeps the player's own name (null reads as empty) and rebuilds the keywords. */
 	synchronized void playerName(String rawName)
 	{
 		playerName = PlainText.name(rawName);
-		keywords = Keywords.of(setting, partial, playerName);
+		keywords = Keywords.of(setting, partial, keywordName());
+	}
+
+	/** The name the keywords are led by: the player's, or none while the name is not a keyword. */
+	private String keywordName()
+	{
+		return nameIsKeyword ? playerName : null;
 	}
 
 	/** The player's own cleaned name; empty while it is unknown. */

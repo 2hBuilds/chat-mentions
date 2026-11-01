@@ -116,6 +116,18 @@ public class ChatMentionsPlugin extends Plugin
 			}
 
 			@Override
+			public boolean nameIsKeyword()
+			{
+				return config.nameIsKeyword();
+			}
+
+			@Override
+			public void setNameIsKeyword(boolean on)
+			{
+				write("nameIsKeyword", on);
+			}
+
+			@Override
 			public boolean followChatFilter()
 			{
 				return config.followChatFilter();
@@ -416,7 +428,7 @@ public class ChatMentionsPlugin extends Plugin
 		{
 			return;
 		}
-		current.keywords(config.keywords(), partialOf(config.wholeWordsOnly()));
+		current.keywords(config.keywords(), partialOf(config.wholeWordsOnly()), config.nameIsKeyword());
 		for (final Chat chat : Chat.values())
 		{
 			current.watch(chat, watched(chat));
@@ -497,10 +509,10 @@ public class ChatMentionsPlugin extends Plugin
 			bounds.width - insets.left - insets.right, bounds.height - insets.top - insets.bottom);
 	}
 
-	/** "Reset to default": unsets the fifteen keys. */
+	/** "Reset to default": unsets the sixteen keys. */
 	private void resetToDefault()
 	{
-		final String[] keys = {"keywords", "wholeWordsOnly", "followChatFilter", "watchPublic", "watchPrivate", "watchChannel", "watchClan",
+		final String[] keys = {"keywords", "wholeWordsOnly", "nameIsKeyword", "followChatFilter", "watchPublic", "watchPrivate", "watchChannel", "watchClan",
 			"watchGame", "watchTrade", "cardsKept", "linesKept", "defaultKeywordColour",
 			"keywordColours", "cardsShare", "shownTab"};
 		for (final String key : keys)

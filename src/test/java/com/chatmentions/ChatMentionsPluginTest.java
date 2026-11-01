@@ -31,7 +31,7 @@ public class ChatMentionsPluginTest
 	private MentionFeed feed()
 	{
 		final MentionFeed feed = new MentionFeed(100, 20);
-		feed.keywords("gp", false);
+		feed.keywords("gp", false, true);
 		feed.playerName("Sanka");
 		feed.watch(Chat.PUBLIC, true);
 		return feed;

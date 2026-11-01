@@ -17,6 +17,7 @@ public class ChatMentionsConfigTest
 		};
 		assertEquals("", config.keywords());
 		assertTrue(config.wholeWordsOnly());
+		assertTrue(config.nameIsKeyword());
 		assertTrue(config.followChatFilter());
 		assertTrue(config.watchPublic());
 		assertTrue(config.watchPrivate());

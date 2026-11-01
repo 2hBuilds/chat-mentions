@@ -20,6 +20,12 @@ interface PanelSettings
 	/** Writes whether a keyword counts as a whole word only. */
 	void setWholeWordsOnly(boolean on);
 
+	/** Whether the player's display name counts as a keyword. */
+	boolean nameIsKeyword();
+
+	/** Writes whether the player's display name counts as a keyword. */
+	void setNameIsKeyword(boolean on);
+
 	/** Whether chat lines are hidden and censored the way RuneLite's Chat Filter does, when it is on. */
 	boolean followChatFilter();
 

@@ -125,6 +125,9 @@ public class ChatMentionsPanel extends PluginPanel
 	static final String HOW_TO_NOTE_NAME = "how-to-note";
 	static final String HOW_TO_ROW_NAME = "how-to-row";
 	static final String HELP_NAME = "how-to-help";
+	/** The keyword strip's double gears, and their one-phrase hover. */
+	static final String KEYWORD_OPTIONS_NAME = "keyword-options";
+	static final String KEYWORD_OPTIONS_TIP = "Keyword options";
 	/** The (?)'s one-word hover. */
 	static final String HELP_TIP = "Help";
 
@@ -233,8 +236,13 @@ public class ChatMentionsPanel extends PluginPanel
 	/** The (?) in its two colours: gold while the guide is hidden, white while it shows. */
 	private static final ImageIcon HELP_GOLD = HelpGlyph.icon(ICON_SIZE, ColorScheme.BRAND_ORANGE);
 	private static final ImageIcon HELP_WHITE = HelpGlyph.icon(ICON_SIZE, Color.WHITE);
+	/** The keyword options gears in their two colours: grey at rest, white under the mouse and while their popup is open. */
+	private static final ImageIcon GEARS_GREY = GearsGlyph.icon(ColorScheme.LIGHT_GRAY_COLOR);
+	private static final ImageIcon GEARS_WHITE = GearsGlyph.icon(Color.WHITE);
 	/** A press on the settings icon this soon after the menu closed is the press that closed it, not a new open. */
 	private static final long REOPEN_GUARD_NANOS = 250_000_000L;
+	/** How long after an add a strip rebuild still starts the breath of the words typed again. */
+	private static final long BREATH_CARRY_NANOS = 1_000_000_000L;
 	/** The gap between a row's caption and its control, in px. */
 	private static final int ROW_CAPTION_GAP = 10;
 	/** The number boxes' ranges. */
@@ -257,7 +265,15 @@ public class ChatMentionsPanel extends PluginPanel
 	/** The hover on the whole-words check. */
 	static final String WHOLE_WORDS_TIP = "Ticked: 2h matches only the word 2h. Unticked: 2h also matches 2hbuilds.";
 
+	/** The hover on the name check. */
+	static final String NAME_KEYWORD_TIP = "Ticked: lines with your name make cards. Unticked: only your keywords do.";
+
+	private JCheckBoxMenuItem menuWholeWordsCheck;
 	private JCheckBoxMenuItem wholeWordsCheck;
+	private JCheckBoxMenuItem menuNameCheck;
+	private JCheckBoxMenuItem nameCheck;
+	private JLabel keywordGears;
+	private JPopupMenu keywordOptions;
 	private JCheckBoxMenuItem followFilterCheck;
 	private JTextField keywordsBox;
 	private JPanel keywordChips;
@@ -290,12 +306,23 @@ public class ChatMentionsPanel extends PluginPanel
 	private JLabel helpIcon;
 	/** True while the mouse is over the (?). */
 	private boolean helpHovered;
+	/** True while the mouse is over the keyword gears, and while their popup is open. */
+	private boolean gearsHovered;
+	private boolean gearsOpen;
 	/** True while the cards half shows the tip; the how-to goes when the first card replaces it. */
 	private boolean tipShown = true;
 	/** True from a keyword chip's click until the picker it opened is closed. */
 	private boolean pickerOpen;
+	/**
+	 * The words typed again at the last add, and when: the write of a new word typed with them rebuilds the strip a
+	 * moment later, and the rebuild starts their breath again on the new chips.
+	 */
+	private List<String> breathWords = new ArrayList<>();
+	private long breathAtNanos;
 	private final JPopupMenu menu;
 	private long closedAtNanos = System.nanoTime() - 2 * REOPEN_GUARD_NANOS;
+	/** When the keyword options popup last closed, for the same reopen guard. */
+	private long gearsClosedAtNanos = System.nanoTime() - 2 * REOPEN_GUARD_NANOS;
 
 	private final JLabel count = new JLabel();
 	private final CardColumn column = new CardColumn();
@@ -564,7 +591,7 @@ public class ChatMentionsPanel extends PluginPanel
 	 */
 	private BiFunction<int[], String, AttributeSet> spanStyle()
 	{
-		final List<String> words = Keywords.of(settings.keywords(), false, feed.playerName()).words();
+		final List<String> words = Keywords.of(settings.keywords(), false, settings.nameIsKeyword() ? feed.playerName() : null).words();
 		final WordColours own = colours();
 		final Color fallback = settings.keywordColour();
 		return (span, hit) ->
@@ -1512,8 +1539,8 @@ public class ChatMentionsPanel extends PluginPanel
 
 	/**
 	 * The settings menu, in STANDARD A5's order: the header (focusable, so the menu's window takes the keyboard and no
-	 * box holds a caret), a rule, the "Watch" caption and the six chat checks, a rule, the whole-words check and the Block what the chatbox blocks check, a rule,
-	 * a rule, the "Colours" caption with its two indented rows ("Default keyword colour" with the swatch at the right
+	 * box holds a caret), a rule, the "Watch" caption and the six chat checks, a rule, the Match whole words only check and the Block what the chatbox blocks check, a rule,
+	 * the "Colours" caption with its two indented rows ("Default keyword colour" with the swatch at the right
 	 * end, "Reset all keyword colours"), a rule, the keywords box and the two number boxes, a rule, then the OK row.
 	 */
 	private JPopupMenu buildMenu()
@@ -1534,9 +1561,12 @@ public class ChatMentionsPanel extends PluginPanel
 		addWatch(popup, Chat.GAME, "Game");
 		addWatch(popup, Chat.TRADE, "Trade");
 		popup.addSeparator();
-		wholeWordsCheck = check("Whole words only", on -> settings.setWholeWordsOnly(on));
-		wholeWordsCheck.setToolTipText(WHOLE_WORDS_TIP);
-		popup.add(wholeWordsCheck);
+		menuWholeWordsCheck = check("Match whole words only", on -> settings.setWholeWordsOnly(on));
+		menuWholeWordsCheck.setToolTipText(WHOLE_WORDS_TIP);
+		popup.add(menuWholeWordsCheck);
+		menuNameCheck = check("Use display name as keyword", on -> settings.setNameIsKeyword(on));
+		menuNameCheck.setToolTipText(NAME_KEYWORD_TIP);
+		popup.add(menuNameCheck);
 		followFilterCheck = check("Block what the chatbox blocks", on -> settings.setFollowChatFilter(on));
 		followFilterCheck.setToolTipText(FOLLOW_FILTER_TIP);
 		popup.add(followFilterCheck);
@@ -1803,7 +1833,11 @@ public class ChatMentionsPanel extends PluginPanel
 	}
 
 	/**
-	 * The keyword strip: a card with the name chip and one chip per keyword over the add field.
+	 * The keyword strip: a card with the name chip and one chip per keyword over the add field, and the keyword options
+	 * gears at the top right of the chips' row.
+	 *
+	 * <p>Choice: the chips and the gears share one row, the chips in what the gears leave, so the chips wrap before they
+	 * could run under the gears.
 	 *
 	 * <p>Choice: the chips' row has a border of minus four px all round, which takes back the room the wrapping flow
 	 * leaves at its edges, so the first chip stands flush with the field's edge; the add row is at least 22 px tall, so a
@@ -1831,10 +1865,140 @@ public class ChatMentionsPanel extends PluginPanel
 		keywordChips.setOpaque(false);
 		keywordChips.setBorder(new EmptyBorder(-KEYWORD_GAP, -KEYWORD_GAP, -KEYWORD_GAP, -KEYWORD_GAP));
 		keywordChips.setAlignmentX(Component.LEFT_ALIGNMENT);
-		strip.add(keywordChips);
+		final JPanel chipsRow = new JPanel(new BorderLayout())
+		{
+			@Override
+			public Dimension getMaximumSize()
+			{
+				return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+			}
+		};
+		chipsRow.setOpaque(false);
+		chipsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+		chipsRow.add(keywordChips, BorderLayout.CENTER);
+		final JPanel gearsHolder = new JPanel(new BorderLayout());
+		gearsHolder.setOpaque(false);
+		gearsHolder.add(keywordGearsIcon(), BorderLayout.NORTH);
+		chipsRow.add(gearsHolder, BorderLayout.EAST);
+		strip.add(chipsRow);
 		strip.add(Box.createVerticalStrut(STRIP_ROWS_GAP));
 		strip.add(addRow());
 		return strip;
+	}
+
+	/**
+	 * The keyword options gears: grey at rest, white under the mouse and while their popup is open; a left press opens the
+	 * popup under them, and a second press closes it. The icon is level with the first line of chips and ends at the
+	 * strip's inner right edge.
+	 */
+	private JLabel keywordGearsIcon()
+	{
+		final int pad = Math.max(0, (KEYWORD_CHIP_HEIGHT - GearsGlyph.SIZE) / 2);
+		final JLabel icon = new JLabel(GEARS_GREY);
+		icon.setName(KEYWORD_OPTIONS_NAME);
+		icon.setToolTipText(KEYWORD_OPTIONS_TIP);
+		icon.setBorder(new EmptyBorder(pad, KEYWORD_GAP, KEYWORD_CHIP_HEIGHT - GearsGlyph.SIZE - pad, 0));
+		icon.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		keywordGears = icon;
+		keywordOptions = buildKeywordOptions();
+		icon.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mousePressed(MouseEvent e)
+			{
+				if (SwingUtilities.isLeftMouseButton(e) && !e.isPopupTrigger())
+				{
+					openKeywordOptions();
+				}
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent e)
+			{
+				gearsHovered = true;
+				paintGears();
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e)
+			{
+				gearsHovered = false;
+				paintGears();
+			}
+		});
+		return icon;
+	}
+
+	/** Sets the gears' colour from whether the mouse is over them and whether their popup is open. */
+	private void paintGears()
+	{
+		keywordGears.setIcon(gearsHovered || gearsOpen ? GEARS_WHITE : GEARS_GREY);
+	}
+
+	/**
+	 * Opens the keyword options under the gears with its right edge at theirs; the press that closed it a moment ago opens
+	 * nothing, so the gears toggle.
+	 */
+	private void openKeywordOptions()
+	{
+		if (!keywordGears.isShowing() || System.nanoTime() - gearsClosedAtNanos < REOPEN_GUARD_NANOS)
+		{
+			return;
+		}
+		final int x = keywordGears.getWidth() - keywordOptions.getPreferredSize().width;
+		keywordOptions.show(keywordGears, x, keywordGears.getHeight());
+	}
+
+	/** The keyword options popup: the menu's border and one check, the whole-words switch. */
+	private JPopupMenu buildKeywordOptions()
+	{
+		final JPopupMenu popup = new JPopupMenu();
+		popup.setBorder(new EmptyBorder(5, 5, 5, 5));
+		wholeWordsCheck = check("Match whole words only", on -> settings.setWholeWordsOnly(on));
+		wholeWordsCheck.setToolTipText(WHOLE_WORDS_TIP);
+		popup.add(wholeWordsCheck);
+		nameCheck = check("Use display name as keyword", on -> settings.setNameIsKeyword(on));
+		nameCheck.setToolTipText(NAME_KEYWORD_TIP);
+		popup.add(nameCheck);
+		popup.addPopupMenuListener(new PopupMenuListener()
+		{
+			@Override
+			public void popupMenuWillBecomeVisible(PopupMenuEvent e)
+			{
+				syncing = true;
+				try
+				{
+					wholeWordsCheck.setSelected(settings.wholeWordsOnly());
+					nameCheck.setSelected(settings.nameIsKeyword());
+				}
+				finally
+				{
+					syncing = false;
+				}
+				gearsOpen = true;
+				paintGears();
+			}
+
+			@Override
+			public void popupMenuWillBecomeInvisible(PopupMenuEvent e)
+			{
+				closedKeywordOptions();
+			}
+
+			@Override
+			public void popupMenuCanceled(PopupMenuEvent e)
+			{
+				closedKeywordOptions();
+			}
+		});
+		return popup;
+	}
+
+	private void closedKeywordOptions()
+	{
+		gearsClosedAtNanos = System.nanoTime();
+		gearsOpen = false;
+		paintGears();
 	}
 
 	/** The add row: one framed row, the field in the centre and the "+" at its right end. */
@@ -1879,33 +2043,102 @@ public class ChatMentionsPanel extends PluginPanel
 		return row;
 	}
 
-	/** The strip's chips again: the name chip, then one chip per keyword of the setting, in its order. */
+	/** A chip that can breathe: its edge glows gold when a word it holds is typed again. */
+	interface Breathing
+	{
+		/** The chip's breath. */
+		ChipBreath breath();
+	}
+
+	/** The name chip, a label that breathes. */
+	private static final class NameChip extends JLabel implements Breathing
+	{
+		private final ChipBreath breath = new ChipBreath(this);
+
+		NameChip(String text)
+		{
+			super(text);
+		}
+
+		@Override
+		public ChipBreath breath()
+		{
+			return breath;
+		}
+
+		@Override
+		public void paint(Graphics g)
+		{
+			super.paint(g);
+			breath.paint(g);
+		}
+	}
+
+	/** A keyword's chip, a panel that knows its word and breathes. */
+	private static final class WordChip extends JPanel implements Breathing
+	{
+		private final ChipBreath breath = new ChipBreath(this);
+		private final String word;
+
+		WordChip(String word)
+		{
+			this.word = word;
+		}
+
+		@Override
+		public ChipBreath breath()
+		{
+			return breath;
+		}
+
+		@Override
+		public void paint(Graphics g)
+		{
+			super.paint(g);
+			breath.paint(g);
+		}
+	}
+
+	/**
+	 * The strip's chips again: the name chip first, only while the name is a keyword, then one chip per keyword of the
+	 * setting, in its order. While the name chip shows, a keyword equal to the name has no chip of its own.
+	 */
 	private void rebuildStrip()
 	{
 		keywordChips.removeAll();
 		final String own = feed.playerName();
-		final JLabel name = label(own.isEmpty() ? NAME_CHIP_FALLBACK : own, FontManager.getDefaultFont().deriveFont(11f),
-			settings.keywordColour());
-		name.setName(KEYWORD_NAME_NAME);
-		name.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		name.addMouseListener(new MouseAdapter()
+		final boolean nameOn = settings.nameIsKeyword();
+		if (nameOn)
 		{
-			@Override
-			public void mouseClicked(MouseEvent e)
+			final NameChip name = new NameChip(own.isEmpty() ? NAME_CHIP_FALLBACK : own);
+			name.setFont(FontManager.getDefaultFont().deriveFont(11f));
+			name.setForeground(settings.keywordColour());
+			name.setName(KEYWORD_NAME_NAME);
+			name.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			name.addMouseListener(new MouseAdapter()
 			{
-				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1 && !pickerOpen)
+				@Override
+				public void mouseClicked(MouseEvent e)
 				{
-					pickDefaultColour(e.getLocationOnScreen());
+					if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1 && !pickerOpen)
+					{
+						pickDefaultColour(e.getLocationOnScreen());
+					}
 				}
-			}
-		});
-		name.setBorder(new CompoundBorder(new MatteBorder(1, 1, 1, 1, STRIP_EDGE), new EmptyBorder(1, 3, 1, 3)));
-		name.setPreferredSize(new Dimension(name.getPreferredSize().width, KEYWORD_CHIP_HEIGHT));
-		keywordChips.add(name);
+			});
+			name.setBorder(new CompoundBorder(new MatteBorder(1, 1, 1, 1, STRIP_EDGE), new EmptyBorder(1, 3, 1, 3)));
+			name.setPreferredSize(new Dimension(name.getPreferredSize().width, KEYWORD_CHIP_HEIGHT));
+			keywordChips.add(name);
+		}
 		for (final String word : keywordsOfSetting())
 		{
+			if (nameOn && word.equalsIgnoreCase(own))
+			{
+				continue;
+			}
 			keywordChips.add(keywordChip(word));
 		}
+		breatheRepeats();
 		keywordChips.revalidate();
 		keywordChips.repaint();
 	}
@@ -1913,7 +2146,7 @@ public class ChatMentionsPanel extends PluginPanel
 	/** One keyword chip: the word, then a cross that takes the word out of the setting; a single click on the word or the ground opens its colour picker. */
 	private JPanel keywordChip(String word)
 	{
-		final JPanel chip = new JPanel();
+		final JPanel chip = new WordChip(word);
 		chip.setName(KEYWORD_CHIP_NAME);
 		chip.setLayout(new BoxLayout(chip, BoxLayout.X_AXIS));
 		chip.setBackground(KEYWORD_CHIP_GROUND);
@@ -1998,21 +2231,29 @@ public class ChatMentionsPanel extends PluginPanel
 	}
 
 	/**
-	 * Adds the words typed in the field to the setting, once, after the words it holds; a word the setting already has
-	 * (ignoring case) is left out, and the field is emptied whatever came of it.
+	 * Adds the words typed in the field to the setting, once, after the words it holds; a word already held (ignoring
+	 * case, the player's known name included while the name is a keyword) is left out and its chip breathes instead,
+	 * and the field is emptied whatever came of it.
 	 */
 	private void addKeywords()
 	{
 		final List<String> all = new ArrayList<>(keywordsOfSetting());
 		final int before = all.size();
+		final String own = feed.playerName();
+		final boolean nameHeld = settings.nameIsKeyword() && !own.isEmpty();
+		final List<String> repeats = new ArrayList<>();
 		for (final String word : Keywords.of(keywordField.getText(), false, null).words())
 		{
-			boolean have = false;
+			boolean have = nameHeld && own.equalsIgnoreCase(word);
 			for (final String held : all)
 			{
 				have |= held.equalsIgnoreCase(word);
 			}
-			if (!have)
+			if (have)
+			{
+				repeats.add(word);
+			}
+			else
 			{
 				all.add(word);
 			}
@@ -2021,6 +2262,38 @@ public class ChatMentionsPanel extends PluginPanel
 		if (all.size() > before)
 		{
 			settings.setKeywords(String.join(", ", all));
+		}
+		breathWords = repeats;
+		breathAtNanos = System.nanoTime();
+		breatheRepeats();
+	}
+
+	/** Makes the chips of the words typed again breathe, while that add is under {@link #BREATH_CARRY_NANOS} old. */
+	private void breatheRepeats()
+	{
+		if (breathWords.isEmpty() || System.nanoTime() - breathAtNanos > BREATH_CARRY_NANOS)
+		{
+			return;
+		}
+		final String own = feed.playerName();
+		final boolean nameHeld = settings.nameIsKeyword() && !own.isEmpty();
+		for (final String word : breathWords)
+		{
+			breathe(word, nameHeld && own.equalsIgnoreCase(word));
+		}
+	}
+
+	/** Makes the chip that shows {@code word} breathe: the name chip when {@code isName}. A word with no chip is left alone. */
+	private void breathe(String word, boolean isName)
+	{
+		for (final Component part : keywordChips.getComponents())
+		{
+			final boolean match = isName ? part instanceof NameChip : part instanceof WordChip && ((WordChip) part).word.equalsIgnoreCase(word);
+			if (match)
+			{
+				((Breathing) part).breath().start();
+				return;
+			}
 		}
 	}
 
@@ -2034,7 +2307,8 @@ public class ChatMentionsPanel extends PluginPanel
 			{
 				entry.getValue().setSelected(settings.watched(entry.getKey()));
 			}
-			wholeWordsCheck.setSelected(settings.wholeWordsOnly());
+			menuWholeWordsCheck.setSelected(settings.wholeWordsOnly());
+			menuNameCheck.setSelected(settings.nameIsKeyword());
 			followFilterCheck.setSelected(settings.followChatFilter());
 			syncSwatch();
 			final String words = settings.keywords();

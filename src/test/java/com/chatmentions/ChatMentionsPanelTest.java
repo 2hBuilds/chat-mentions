@@ -51,6 +51,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -62,6 +63,7 @@ public class ChatMentionsPanelTest
 {
 	private String keywords = "2h, klar";
 	private boolean wholeWordsOnly = true;
+	private boolean nameIsKeyword = true;
 	private boolean followChatFilter = true;
 	private final Map<Chat, Boolean> watched = new EnumMap<>(Chat.class);
 	private int cards = 20;
@@ -80,7 +82,7 @@ public class ChatMentionsPanelTest
 	private JFrame window;
 
 	{
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("Sanka");
 	}
 
@@ -120,6 +122,18 @@ public class ChatMentionsPanelTest
 		public void setWholeWordsOnly(boolean on)
 		{
 			writes.add("wholeWords=" + on);
+		}
+
+		@Override
+		public boolean nameIsKeyword()
+		{
+			return nameIsKeyword;
+		}
+
+		@Override
+		public void setNameIsKeyword(boolean on)
+		{
+			writes.add("nameIsKeyword=" + on);
 		}
 
 		@Override
@@ -280,7 +294,7 @@ public class ChatMentionsPanelTest
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			for (final int index : new int[]{2, 17})
+			for (final int index : new int[]{2, 18})
 			{
 				final JPanel row = (JPanel) parts[index];
 				final Component caption = row.getComponent(0);
@@ -302,7 +316,7 @@ public class ChatMentionsPanelTest
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			assertEquals(24, parts.length);
+			assertEquals(25, parts.length);
 			assertTrue("the header", parts[0] instanceof JPanel);
 			assertTrue("a rule", parts[1] instanceof JPopupMenu.Separator);
 			assertEquals(ChatMentionsPanel.HOW_TO_ROW_NAME, parts[2].getName());
@@ -322,48 +336,52 @@ public class ChatMentionsPanelTest
 			}
 			assertTrue("a rule", parts[11] instanceof JPopupMenu.Separator);
 			assertTrue(parts[12] instanceof JCheckBoxMenuItem);
-			assertEquals("Whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
+			assertEquals("Match whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
 			assertTrue(((JCheckBoxMenuItem) parts[12]).isSelected());
-			assertEquals("Ticked: 2h matches only the word 2h. Unticked: 2h also matches 2hbuilds.", ((JCheckBoxMenuItem) parts[12]).getToolTipText());
+			assertEquals(ChatMentionsPanel.WHOLE_WORDS_TIP, ((JCheckBoxMenuItem) parts[12]).getToolTipText());
 			assertTrue(parts[13] instanceof JCheckBoxMenuItem);
-			assertEquals("Block what the chatbox blocks", ((JCheckBoxMenuItem) parts[13]).getText());
+			assertEquals("Use display name as keyword", ((JCheckBoxMenuItem) parts[13]).getText());
 			assertTrue(((JCheckBoxMenuItem) parts[13]).isSelected());
-			assertEquals("Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. Spam getting through? Add the words to Chat Filter.", ((JCheckBoxMenuItem) parts[13]).getToolTipText());
-			assertTrue("a rule", parts[14] instanceof JPopupMenu.Separator);
+			assertEquals(ChatMentionsPanel.NAME_KEYWORD_TIP, ((JCheckBoxMenuItem) parts[13]).getToolTipText());
+			assertTrue(parts[14] instanceof JCheckBoxMenuItem);
+			assertEquals("Block what the chatbox blocks", ((JCheckBoxMenuItem) parts[14]).getText());
+			assertTrue(((JCheckBoxMenuItem) parts[14]).isSelected());
+			assertEquals("Leaves out what your chatbox hides: the game's Public setting (autochat, friends, off) and RuneLite's Chat Filter plugin. Spam getting through? Add the words to Chat Filter.", ((JCheckBoxMenuItem) parts[14]).getToolTipText());
+			assertTrue("a rule", parts[15] instanceof JPopupMenu.Separator);
 
-			assertEquals("Colours", captionOf((JPanel) parts[15]));
-			assertEquals(new Color(165, 165, 165), ((JLabel) ((JPanel) parts[15]).getComponent(0)).getForeground());
-			final JPanel colourRow = (JPanel) parts[16];
+			assertEquals("Colours", captionOf((JPanel) parts[16]));
+			assertEquals(new Color(165, 165, 165), ((JLabel) ((JPanel) parts[16]).getComponent(0)).getForeground());
+			final JPanel colourRow = (JPanel) parts[17];
 			assertEquals(ChatMentionsPanel.KEYWORD_COLOUR_ROW_NAME, colourRow.getName());
 			assertEquals("Default keyword colour", captionOf(colourRow));
 			assertEquals(Color.WHITE, ((JLabel) colourRow.getComponent(0)).getForeground());
 			final Component swatch = lastOf(colourRow);
 			assertEquals(ChatMentionsPanel.KEYWORD_SWATCH_NAME, swatch.getName());
 			assertEquals(new Color(59, 130, 246), swatch.getBackground());
-			final JPanel resetRow = (JPanel) parts[17];
+			final JPanel resetRow = (JPanel) parts[18];
 			assertEquals(ChatMentionsPanel.KEYWORD_CLEAR_NAME, resetRow.getName());
 			assertEquals("Reset all keyword colours", captionOf(resetRow));
 			assertEquals(Color.WHITE, ((JLabel) resetRow.getComponent(0)).getForeground());
-			assertTrue("a rule", parts[18] instanceof JPopupMenu.Separator);
-			assertEquals("Keywords", captionOf((JPanel) parts[19]));
-			final Component box = lastOf((JPanel) parts[19]);
+			assertTrue("a rule", parts[19] instanceof JPopupMenu.Separator);
+			assertEquals("Keywords", captionOf((JPanel) parts[20]));
+			final Component box = lastOf((JPanel) parts[20]);
 			assertTrue(box instanceof JTextField);
 			assertEquals("2h, klar", ((JTextField) box).getText());
 
-			assertEquals("Cards kept", captionOf((JPanel) parts[20]));
-			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[20]);
+			assertEquals("Cards kept", captionOf((JPanel) parts[21]));
+			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[21]);
 			assertEquals(20, ((Number) cardsSpinner.getValue()).intValue());
 			assertTrue(((JSpinner.DefaultEditor) cardsSpinner.getEditor()).getTextField().getColumns() <= 4);
 
-			assertEquals("Chat lines kept", captionOf((JPanel) parts[21]));
-			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[21]);
+			assertEquals("Chat lines kept", captionOf((JPanel) parts[22]));
+			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[22]);
 			assertEquals(3000, ((Number) linesSpinner.getValue()).intValue());
 			assertTrue(((JSpinner.DefaultEditor) linesSpinner.getEditor()).getTextField().getColumns() <= 5);
 
-			assertTrue("a rule", parts[22] instanceof JPopupMenu.Separator);
-			assertTrue(parts[23] instanceof JPanel);
-			assertNotNull(button((JPanel) parts[23], "Reset to default"));
-			assertNotNull(button((JPanel) parts[23], "OK"));
+			assertTrue("a rule", parts[23] instanceof JPopupMenu.Separator);
+			assertTrue(parts[24] instanceof JPanel);
+			assertNotNull(button((JPanel) parts[24], "Reset to default"));
+			assertNotNull(button((JPanel) parts[24], "OK"));
 			final int swatchRight = SwingUtilities.convertPoint(swatch, swatch.getWidth(), 0, menu).x;
 			final int boxRight = SwingUtilities.convertPoint(box, box.getWidth(), 0, menu).x;
 			assertTrue("the swatch's right edge is at the boxes' (" + swatchRight + " vs " + boxRight + ")",
@@ -380,9 +398,408 @@ public class ChatMentionsPanelTest
 			click(check(menu, "Game"));
 			assertEquals(Arrays.asList("watched GAME=true"), writes);
 			assertTrue("the menu is still showing", menu.isVisible());
-			click(check(menu, "Whole words only"));
+			click(check(menu, "Match whole words only"));
 			assertEquals(Arrays.asList("watched GAME=true", "wholeWords=false"), writes);
 			assertTrue("the menu is still showing", menu.isVisible());
+		});
+	}
+
+	@Test
+	public void theKeywordStripHasTheGearsAtItsTopRight() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final Container strip = (Container) named(shown, ChatMentionsPanel.STRIP_NAME);
+			final Component gears = named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME);
+			assertNotNull("the gears are in the panel", gears);
+			assertTrue("the gears are inside the strip", SwingUtilities.isDescendingFrom(gears, strip));
+			assertEquals("Keyword options", ((JLabel) gears).getToolTipText());
+			final Component add = named(shown, ChatMentionsPanel.KEYWORD_ADD_NAME);
+			final Container addRow = add.getParent();
+			final int gearsRight = SwingUtilities.convertPoint(gears, gears.getWidth(), 0, strip).x;
+			final int rowRight = SwingUtilities.convertPoint(addRow, addRow.getWidth(), 0, strip).x;
+			assertTrue("the gears' right edge is at the add row's (" + gearsRight + " vs " + rowRight + ")",
+				Math.abs(gearsRight - rowRight) <= 2);
+			final Component name = named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME);
+			final int gearsTop = SwingUtilities.convertPoint(gears, 0, 0, strip).y;
+			final int nameTop = SwingUtilities.convertPoint(name, 0, 0, strip).y;
+			assertTrue("the gears' top is level with the name chip's (" + gearsTop + " vs " + nameTop + ")",
+				Math.abs(gearsTop - nameTop) <= 3);
+		});
+	}
+
+	@Test
+	public void theChipsWrapBeforeTheGears() throws Exception
+	{
+		keywords = "alpha, bravo, charlie, delta, echo, foxtrot, golf, hotel, india, juliet, kilo, lima, mike, november";
+		open();
+		onEdt(() ->
+		{
+			window.validate();
+			window.validate();
+			final Container strip = (Container) named(shown, ChatMentionsPanel.STRIP_NAME);
+			final Component gears = named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME);
+			final Rectangle gearsAt = SwingUtilities.convertRectangle(gears.getParent(), gears.getBounds(), strip);
+			final Container chips = (Container) named(shown, ChatMentionsPanel.KEYWORD_CHIPS_NAME);
+			assertTrue("the chips wrapped onto several lines", chips.getComponentCount() > 10);
+			int lines = 0;
+			int lastY = -1;
+			for (final Component chip : chips.getComponents())
+			{
+				final Rectangle at = SwingUtilities.convertRectangle(chips, chip.getBounds(), strip);
+				assertFalse("a chip meets the gears: " + at + " vs " + gearsAt, at.intersects(gearsAt));
+				if (at.y != lastY)
+				{
+					lines++;
+					lastY = at.y;
+				}
+			}
+			assertTrue("the chips took more than one line", lines > 1);
+		});
+	}
+
+	@Test
+	public void thePopupHoldsBothKeywordChecks() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final JLabel gears = (JLabel) named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME);
+			leftPress(gears);
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull("the popup is on screen", popup);
+			assertTrue(popup.isVisible());
+			assertEquals(2, popup.getComponentCount());
+			final JCheckBoxMenuItem whole = check(popup, "Match whole words only");
+			assertNotNull(whole);
+			assertSame("first", whole, popup.getComponent(0));
+			assertTrue("ticked", whole.isSelected());
+			assertEquals(ChatMentionsPanel.WHOLE_WORDS_TIP, whole.getToolTipText());
+			final JCheckBoxMenuItem nameCheck = check(popup, "Use display name as keyword");
+			assertNotNull(nameCheck);
+			assertSame("second", nameCheck, popup.getComponent(1));
+			assertTrue("ticked", nameCheck.isSelected());
+			assertEquals(ChatMentionsPanel.NAME_KEYWORD_TIP, nameCheck.getToolTipText());
+			assertTrue("no label anywhere in it", labelsIn(popup).isEmpty());
+			final int popupRight = popup.getLocationOnScreen().x + popup.getWidth();
+			final int gearsRight = gears.getLocationOnScreen().x + gears.getWidth();
+			assertTrue("the popup's right edge is at the gears' (" + popupRight + " vs " + gearsRight + ")",
+				Math.abs(popupRight - gearsRight) <= 2);
+			assertTrue("opening wrote nothing", writes.isEmpty());
+		});
+	}
+
+	@Test
+	public void aWholeWordsClickWritesAndKeepsThePopupOpen() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull(popup);
+			click(check(popup, "Match whole words only"));
+			assertEquals(Arrays.asList("wholeWords=false"), writes);
+			assertTrue("the popup is still showing", popup.isVisible());
+		});
+	}
+
+	@Test
+	public void thePopupTicksFromTheSettingAsItOpens() throws Exception
+	{
+		wholeWordsOnly = false;
+		open();
+		onEdt(() ->
+		{
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull(popup);
+			assertFalse("unticked", check(popup, "Match whole words only").isSelected());
+			assertTrue("opening wrote nothing", writes.isEmpty());
+		});
+	}
+
+	@Test
+	public void theTwoWholeWordsChecksFollowOneSetting() throws Exception
+	{
+		wholeWordsOnly = false;
+		open();
+		onEdt(() ->
+		{
+			press(settingsIcon(shown));
+			final JPopupMenu menu = popupMenu(window);
+			assertNotNull("the settings menu is on screen", menu);
+			assertFalse("the menu's check opens unticked", check(menu, "Match whole words only").isSelected());
+			menu.setVisible(false);
+			wholeWordsOnly = true;
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull("the popup is on screen", popup);
+			assertTrue("the popup's check opens ticked", check(popup, "Match whole words only").isSelected());
+			assertTrue("neither opening wrote", writes.isEmpty());
+		});
+	}
+
+	@Test
+	public void theNameCheckWritesAndKeepsTheMenuOpen() throws Exception
+	{
+		withMenu((panel, menu) ->
+		{
+			click(check(menu, "Use display name as keyword"));
+			assertEquals(Arrays.asList("nameIsKeyword=false"), writes);
+			assertTrue("the menu is still showing", menu.isVisible());
+		});
+	}
+
+	@Test
+	public void theNameCheckWritesAndKeepsThePopupOpen() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull(popup);
+			click(check(popup, "Use display name as keyword"));
+			assertEquals(Arrays.asList("nameIsKeyword=false"), writes);
+			assertTrue("the popup is still showing", popup.isVisible());
+		});
+	}
+
+	@Test
+	public void theNameChecksTickFromTheSettingAsTheyOpen() throws Exception
+	{
+		nameIsKeyword = false;
+		open();
+		onEdt(() ->
+		{
+			press(settingsIcon(shown));
+			final JPopupMenu menu = popupMenu(window);
+			assertNotNull("the settings menu is on screen", menu);
+			assertFalse("the menu's check opens unticked", check(menu, "Use display name as keyword").isSelected());
+			menu.setVisible(false);
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull("the popup is on screen", popup);
+			assertFalse("the popup's check opens unticked", check(popup, "Use display name as keyword").isSelected());
+			assertTrue("neither opening wrote", writes.isEmpty());
+		});
+	}
+
+	@Test
+	public void theNameChipHidesWhileTheNameIsOff() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final Container row = (Container) named(shown, ChatMentionsPanel.KEYWORD_CHIPS_NAME);
+			assertNotNull(named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME));
+
+			nameIsKeyword = false;
+			shown.settingsChanged();
+			assertNull("no name chip", named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME));
+			assertEquals(2, row.getComponentCount());
+			assertEquals(Arrays.asList("2h", "×"), textsIn((Container) row.getComponent(0)));
+			assertEquals(Arrays.asList("klar", "×"), textsIn((Container) row.getComponent(1)));
+
+			nameIsKeyword = true;
+			shown.settingsChanged();
+			assertEquals(3, row.getComponentCount());
+			assertEquals(ChatMentionsPanel.KEYWORD_NAME_NAME, row.getComponent(0).getName());
+			assertEquals(Arrays.asList("2h", "×"), textsIn((Container) row.getComponent(1)));
+			assertEquals(Arrays.asList("klar", "×"), textsIn((Container) row.getComponent(2)));
+		});
+	}
+
+	@Test
+	public void aTypedNameShowsOnlyAsTheNameChipWhileTheNameIsOn() throws Exception
+	{
+		keywords = "SANKA, klar";
+		open();
+		onEdt(() ->
+		{
+			final Container row = (Container) named(shown, ChatMentionsPanel.KEYWORD_CHIPS_NAME);
+			assertEquals(2, row.getComponentCount());
+			assertEquals(ChatMentionsPanel.KEYWORD_NAME_NAME, row.getComponent(0).getName());
+			assertEquals("Sanka", ((JLabel) row.getComponent(0)).getText());
+			assertEquals(Arrays.asList("klar", "×"), textsIn((Container) row.getComponent(1)));
+
+			nameIsKeyword = false;
+			shown.settingsChanged();
+			assertEquals(2, row.getComponentCount());
+			assertEquals(ChatMentionsPanel.KEYWORD_CHIP_NAME, row.getComponent(0).getName());
+			assertEquals(Arrays.asList("SANKA", "×"), textsIn((Container) row.getComponent(0)));
+		});
+	}
+
+	private static ChipBreath breathOf(Component chip)
+	{
+		return ((ChatMentionsPanel.Breathing) chip).breath();
+	}
+
+	private void type(String text)
+	{
+		final JTextField field = (JTextField) named(shown, ChatMentionsPanel.KEYWORD_FIELD_NAME);
+		field.setText(text);
+		field.postActionEvent();
+		assertEquals("", field.getText());
+	}
+
+	@Test
+	public void aRepeatKeywordIsNotAddedAndItsChipBreathes() throws Exception
+	{
+		keywords = "bond, klar";
+		open();
+		onEdt(() ->
+		{
+			type("bond");
+			assertTrue("nothing written", writes.isEmpty());
+			assertTrue(breathOf(keywordChip("bond")).running());
+			assertFalse(breathOf(keywordChip("klar")).running());
+			assertFalse(breathOf(named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME)).running());
+		});
+	}
+
+	@Test
+	public void aRepeatInOtherCapitalsBreathesToo() throws Exception
+	{
+		keywords = "bond, klar";
+		open();
+		onEdt(() ->
+		{
+			type("BOND");
+			assertTrue("nothing written", writes.isEmpty());
+			assertTrue(breathOf(keywordChip("bond")).running());
+			assertFalse(breathOf(keywordChip("klar")).running());
+		});
+	}
+
+	@Test
+	public void theNameTypedWhileOnBreathesTheNameChip() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			type("sanka");
+			assertTrue("nothing written", writes.isEmpty());
+			assertTrue(breathOf(named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME)).running());
+			assertFalse(breathOf(keywordChip("2h")).running());
+		});
+	}
+
+	@Test
+	public void theNameTypedWhileOffIsAddedAsAKeyword() throws Exception
+	{
+		nameIsKeyword = false;
+		open();
+		onEdt(() ->
+		{
+			type("Sanka");
+			assertEquals(Arrays.asList("keywords=2h, klar, Sanka"), writes);
+		});
+	}
+
+	@Test
+	public void aMixOfNewAndRepeatAddsTheNewAndBreathesTheRepeat() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			type("2h, newword");
+			assertEquals(Arrays.asList("keywords=2h, klar, newword"), writes);
+			assertTrue(breathOf(keywordChip("2h")).running());
+			assertFalse(breathOf(keywordChip("klar")).running());
+		});
+	}
+
+	@Test
+	public void theBreathSurvivesTheRebuildTheWriteBrings() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			type("2h, newword");
+			shown.settingsChanged();
+			assertTrue("the new 2h chip breathes", breathOf(keywordChip("2h")).running());
+			assertFalse(breathOf(keywordChip("klar")).running());
+		});
+	}
+
+	@Test
+	public void theBreathKeepsTheChipsSize() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final Container chip = keywordChip("2h");
+			final Component name = named(shown, ChatMentionsPanel.KEYWORD_NAME_NAME);
+			final java.awt.Dimension chipSize = chip.getPreferredSize();
+			final java.awt.Dimension nameSize = name.getPreferredSize();
+			type("2h");
+			type("sanka");
+			assertTrue(breathOf(chip).running());
+			assertTrue(breathOf(name).running());
+			assertEquals(chipSize, chip.getPreferredSize());
+			assertEquals(nameSize, name.getPreferredSize());
+		});
+	}
+
+	@Test
+	public void thePopupStaysInsideTheSidebar() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			leftPress(named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME));
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull("the popup is on screen", popup);
+			assertTrue("the popup's left edge is at or right of the panel's",
+				popup.getLocationOnScreen().x >= shown.getLocationOnScreen().x);
+		});
+	}
+
+	@Test
+	public void aSecondPressClosesThePopup() throws Exception
+	{
+		open();
+		final Component[] gears = new Component[1];
+		final JPopupMenu[] popup = new JPopupMenu[1];
+		onEdt(() ->
+		{
+			gears[0] = named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME);
+			leftPress(gears[0]);
+			popup[0] = popupMenu(window);
+			assertNotNull(popup[0]);
+			assertTrue(popup[0].isVisible());
+			// Swing takes a popup down on the press outside it, before the press reaches the gears.
+			popup[0].setVisible(false);
+			leftPress(gears[0]);
+			assertFalse("the press that closed it opens nothing", popup[0].isVisible());
+		});
+	}
+
+	@Test
+	public void theGearsAreGreyAtRestAndWhiteWhileOpen() throws Exception
+	{
+		open();
+		onEdt(() ->
+		{
+			final JLabel gears = (JLabel) named(shown, ChatMentionsPanel.KEYWORD_OPTIONS_NAME);
+			final int grey = ColorScheme.LIGHT_GRAY_COLOR.getRGB() & 0xFFFFFF;
+			final int white = Color.WHITE.getRGB() & 0xFFFFFF;
+			assertEquals("grey at rest", grey, inkOf(gears));
+			gears.dispatchEvent(new MouseEvent(gears, MouseEvent.MOUSE_ENTERED, System.currentTimeMillis(), 0, 2, 2, 0, false));
+			assertEquals("white under the mouse", white, inkOf(gears));
+			gears.dispatchEvent(new MouseEvent(gears, MouseEvent.MOUSE_EXITED, System.currentTimeMillis(), 0, -5, -5, 0, false));
+			assertEquals("grey when the mouse leaves", grey, inkOf(gears));
+			leftPress(gears);
+			final JPopupMenu popup = popupMenu(window);
+			assertNotNull(popup);
+			assertTrue(popup.isVisible());
+			assertEquals("white while open", white, inkOf(gears));
+			popup.setVisible(false);
+			assertEquals("grey after close", grey, inkOf(gears));
 		});
 	}
 
@@ -404,9 +821,9 @@ public class ChatMentionsPanelTest
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			final JTextField box = (JTextField) lastOf((JPanel) parts[19]);
-			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[20]);
-			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[21]);
+			final JTextField box = (JTextField) lastOf((JPanel) parts[20]);
+			final JSpinner cardsSpinner = (JSpinner) lastOf((JPanel) parts[21]);
+			final JSpinner linesSpinner = (JSpinner) lastOf((JPanel) parts[22]);
 			final JFormattedTextField cardsField = ((JSpinner.DefaultEditor) cardsSpinner.getEditor()).getTextField();
 			final JFormattedTextField linesField = ((JSpinner.DefaultEditor) linesSpinner.getEditor()).getTextField();
 			assertFalse(box.isFocusable());
@@ -443,9 +860,9 @@ public class ChatMentionsPanelTest
 			menu.show(icon, 0, icon.getHeight());
 			assertTrue(menu.isVisible());
 			final Component[] again = menu.getComponents();
-			assertEquals("x", ((JTextField) lastOf((JPanel) again[19])).getText());
-			assertEquals(7, ((Number) ((JSpinner) lastOf((JPanel) again[20])).getValue()).intValue());
-			assertEquals(2000, ((Number) ((JSpinner) lastOf((JPanel) again[21])).getValue()).intValue());
+			assertEquals("x", ((JTextField) lastOf((JPanel) again[20])).getText());
+			assertEquals(7, ((Number) ((JSpinner) lastOf((JPanel) again[21])).getValue()).intValue());
+			assertEquals(2000, ((Number) ((JSpinner) lastOf((JPanel) again[22])).getValue()).intValue());
 			assertTrue("Game ticked", ((JCheckBoxMenuItem) again[9]).isSelected());
 			assertTrue("the sync wrote nothing back", writes.isEmpty());
 		});
@@ -456,7 +873,7 @@ public class ChatMentionsPanelTest
 	{
 		withMenu((panel, menu) ->
 		{
-			final JPanel okRow = (JPanel) menu.getComponents()[23];
+			final JPanel okRow = (JPanel) menu.getComponents()[24];
 			button(okRow, "Reset to default").doClick(0);
 			assertEquals(1, resets);
 			assertTrue("the menu is still showing", menu.isVisible());
@@ -1459,7 +1876,7 @@ public class ChatMentionsPanelTest
 	public void aThousandCardsAreKeptAndTheFirstIsTheNewest() throws Exception
 	{
 		feed = new MentionFeed(2000, 1000);
-		feed.keywords("2h", false);
+		feed.keywords("2h", false, true);
 		feed.playerName("Sanka");
 		open();
 		for (int i = 1; i <= 1000; i++)
@@ -1495,10 +1912,10 @@ public class ChatMentionsPanelTest
 		withMenu((panel, menu) ->
 		{
 			final Component[] parts = menu.getComponents();
-			assertEquals("Whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
-			assertEquals("Default keyword colour", captionOf((JPanel) parts[16]));
-			assertEquals("Keywords", captionOf((JPanel) parts[19]));
-			final Component swatch = named((JPanel) parts[16], ChatMentionsPanel.KEYWORD_SWATCH_NAME);
+			assertEquals("Match whole words only", ((JCheckBoxMenuItem) parts[12]).getText());
+			assertEquals("Default keyword colour", captionOf((JPanel) parts[17]));
+			assertEquals("Keywords", captionOf((JPanel) parts[20]));
+			final Component swatch = named((JPanel) parts[17], ChatMentionsPanel.KEYWORD_SWATCH_NAME);
 			assertTrue(swatch instanceof JLabel);
 			assertEquals(ChatMentionsPanel.KEYWORD_SWATCH_NAME, swatch.getName());
 			assertEquals(new Color(59, 130, 246), swatch.getBackground());
@@ -1621,7 +2038,7 @@ public class ChatMentionsPanelTest
 	public void twoWordsTwoColoursAndTheFallbackNeverOverwrites() throws Exception
 	{
 		keywordColours = "klar=ff0000";
-		feed.keywords("2h, klar", false);
+		feed.keywords("2h, klar", false, true);
 		open();
 		feed.line(ChatMessageType.CLAN_CHAT, "Mossy Rock", "klar and 2h", 1000);
 		flush();
@@ -1673,7 +2090,7 @@ public class ChatMentionsPanelTest
 		keywordColours = "klar=ff0000, 2h=00ff00";
 		withMenu((panel, menu) ->
 		{
-			final JPanel row = (JPanel) menu.getComponents()[17];
+			final JPanel row = (JPanel) menu.getComponents()[18];
 			assertEquals(ChatMentionsPanel.KEYWORD_CLEAR_NAME, row.getName());
 			assertEquals("Reset all keyword colours", captionOf(row));
 			leftPress(row);
