@@ -10,6 +10,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.geom.Rectangle2D;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -2465,6 +2466,76 @@ public class ChatMentionsPanelTest
 			}
 		}
 		throw new AssertionError("no chip reads: " + words);
+	}
+
+	@Test
+	public void aLongWordInTheKeptChatNeverWidensTheView() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "I barely learned how to do solo 150s lmfao", 1000);
+		feed.line(ChatMessageType.CLAN_CHAT, "Iron Pete", "ha" + "ha".repeat(40), 2000);
+		feed.line(ChatMessageType.CLAN_CHAT, "Klar", "and then we left", 3000);
+		flush();
+		onEdt(() ->
+		{
+			leftPress(chip("Clan"));
+			window.validate();
+		});
+		onEdt(() ->
+		{
+			try
+			{
+				final JTextPane view = view();
+				final int viewport = view.getParent().getWidth();
+				assertTrue("the view has lines", view.getDocument().getLength() > 0);
+				assertEquals("as wide as its viewport", viewport, view.getWidth());
+				final String text = view.getDocument().getText(0, view.getDocument().getLength());
+				final int at = text.indexOf("and then we left") + "and then we left".length() - 1;
+				final Rectangle2D last = view.modelToView2D(at);
+				assertTrue("the last character is inside the viewport", last.getMaxX() <= viewport);
+				final String word = "ha" + "ha".repeat(40);
+				final int from = text.indexOf(word);
+				for (int i = from; i < from + word.length(); i++)
+				{
+					assertTrue("the long word's character " + (i - from) + " is inside the viewport",
+						view.modelToView2D(i).getMaxX() <= viewport);
+				}
+			}
+			catch (BadLocationException e)
+			{
+				throw new AssertionError(e);
+			}
+		});
+	}
+
+	@Test
+	public void aLongWordInACardStaysInsideTheCard() throws Exception
+	{
+		open();
+		feed.line(ChatMessageType.CLAN_CHAT, "Iron Pete", "2h " + "h".repeat(80), 2000);
+		flush();
+		onEdt(() ->
+		{
+			try
+			{
+				final List<Container> cards = cards();
+				assertEquals(1, cards.size());
+				final JTextPane text = paneIn(cards.get(0));
+				final java.awt.FontMetrics metrics = text.getFontMetrics(text.getFont());
+				assertTrue("the card text has a width", text.getWidth() > 0);
+				final int length = text.getDocument().getLength();
+				for (int i = 0; i < length; i++)
+				{
+					final Rectangle2D at = text.modelToView2D(i);
+					assertTrue("character " + i + " is inside the card text",
+						at.getX() + metrics.charWidth(text.getText().charAt(i)) <= text.getWidth() + 1);
+				}
+			}
+			catch (BadLocationException e)
+			{
+				throw new AssertionError(e);
+			}
+		});
 	}
 
 	private JTextPane view()

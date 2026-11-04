@@ -332,7 +332,7 @@ public class ChatMentionsPanel extends PluginPanel
 	private final JPanel chipRow = new JPanel(new WrapLayout(CHIP_GAP));
 	private final Map<Chat, JToggleButton> chips = new EnumMap<>(Chat.class);
 	private ButtonGroup chipGroup = new ButtonGroup();
-	private final JTextPane chatView = new JTextPane();
+	private final JTextPane chatView = new ChatPane();
 	private JScrollPane chatScroll;
 	private final Map<Chat, DefaultStyledDocument> documents = new EnumMap<>(Chat.class);
 	/** Per chat, the first and the last line number its document holds; -1 when it holds none. */
@@ -2525,6 +2525,24 @@ public class ChatMentionsPanel extends PluginPanel
 	}
 
 	/**
+	 * The kept chat's text pane: it always follows the viewport's width, with {@link WrapKit} set before any document, so
+	 * one word wider than the view breaks inside the line instead of widening every line past the scrollbar.
+	 */
+	private static final class ChatPane extends JTextPane
+	{
+		ChatPane()
+		{
+			setEditorKit(new WrapKit());
+		}
+
+		@Override
+		public boolean getScrollableTracksViewportWidth()
+		{
+			return true;
+		}
+	}
+
+	/**
 	 * A card's line: non-editable, non-focusable, see-through, wrapping to the card's width, which it reads off the
 	 * column (the card's own width is not yet set when the column asks for its height).
 	 */
@@ -2538,6 +2556,7 @@ public class ChatMentionsPanel extends PluginPanel
 		CardText(JPanel column)
 		{
 			this.column = column;
+			setEditorKit(new WrapKit());
 			setEditable(false);
 			setFocusable(false);
 			setOpaque(false);
